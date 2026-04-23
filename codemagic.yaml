@@ -27,10 +27,6 @@ workflows:
           flutter build ios --release --no-codesign \
             --build-name=1.0.0 \
             --build-number=$PROJECT_BUILD_NUMBER
-      - name: Fix BoringSSL-GRPC and rebuild
-        script: |
-          cd $CM_BUILD_DIR/ios
-          find Pods -name "*.xcconfig" -exec sed -i '' 's/-GCC_WARN_INHIBIT_ALL_WARNINGS//g' {} +
       - name: Archive
         script: |
           cd $CM_BUILD_DIR/ios
