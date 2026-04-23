@@ -324,13 +324,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
             icon: Icons.privacy_tip_outlined,
             title: 'Privacy Policy',
             trailing: Icon(Icons.open_in_new, color: SpinnerTheme.grey, size: 18),
-            onTap: () => _openUrl('https://spinner.app/privacy'),
+            onTap: () => _openUrl('https://spinner-legal.vercel.app/privacy'),
           ),
           _buildRow(
             icon: Icons.description_outlined,
             title: 'Terms of Service',
             trailing: Icon(Icons.open_in_new, color: SpinnerTheme.grey, size: 18),
-            onTap: () => _openUrl('https://spinner.app/terms'),
+            onTap: () => _openUrl('https://spinner-legal.vercel.app/terms'),
           ),
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
