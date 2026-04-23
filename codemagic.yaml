@@ -17,10 +17,6 @@ workflows:
         script: |
           cd $CM_BUILD_DIR
           flutter packages pub get
-      - name: Run build_runner
-        script: |
-          cd $CM_BUILD_DIR
-          flutter packages pub run build_runner build --delete-conflicting-outputs
       - name: Set up code signing
         script: |
           cd $CM_BUILD_DIR/ios
