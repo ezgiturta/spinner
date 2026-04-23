@@ -34,8 +34,16 @@ workflows:
             --workspace Runner.xcworkspace \
             --scheme Runner \
             --archive-flags="-destination 'generic/platform=iOS'"
+      - name: Find IPA
+        script: |
+          echo "Looking for IPA files..."
+          find $CM_BUILD_DIR -name "*.ipa" -type f 2>/dev/null
+          echo "---"
+          ls -la $CM_BUILD_DIR/build/ios/ipa/ 2>/dev/null || echo "No IPA in build/ios/ipa/"
+          ls -la $CM_BUILD_DIR/ios/build/ios/ipa/ 2>/dev/null || echo "No IPA in ios/build/ios/ipa/"
     artifacts:
       - build/ios/ipa/*.ipa
+      - "**/*.ipa"
     publishing:
       app_store_connect:
         auth: integration
