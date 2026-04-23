@@ -11,13 +11,12 @@ class DefaultFirebaseOptions {
     }
   }
 
-  // TODO: Replace with real Firebase config
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'TODO',
-    appId: 'TODO',
-    messagingSenderId: 'TODO',
-    projectId: 'spinner-app',
-    storageBucket: 'spinner-app.appspot.com',
+    apiKey: 'AIzaSyBVJ4DcOkY5FhyrJ_i-M-eOS1_Y-74pV44',
+    appId: '1:127703901556:ios:410e9ea46d9517efa43821',
+    messagingSenderId: '127703901556',
+    projectId: 'spinner-e5775',
+    storageBucket: 'spinner-e5775.appspot.com',
     iosBundleId: 'com.vinylspinner.collect',
   );
 }
