@@ -9,9 +9,9 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 /// Discogs API client with OAuth 1.0a authentication and rate limiting.
 class DiscogsApi {
   static const String _baseUrl = 'https://api.discogs.com';
-  static const String consumerKey = 'YOUR_DISCOGS_CONSUMER_KEY';
+  static const String consumerKey = 'RjrMoGGZRWPVYEWRZIMG';
   static const String _consumerKey = consumerKey;
-  static const String _consumerSecret = 'YOUR_DISCOGS_CONSUMER_SECRET';
+  static const String _consumerSecret = 'cjCYrFzJZXZ0YptcFFQTbEdseUEHxBPW';
 
   static const String _requestTokenUrl =
       'https://api.discogs.com/oauth/request_token';
