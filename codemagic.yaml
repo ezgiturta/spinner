@@ -1,0 +1,51 @@
+workflows:
+  ios-workflow:
+    name: iOS TestFlight
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: Ezgi
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.spinner.app
+      xcode: 16.2
+      cocoapods: default
+    scripts:
+      - name: Get Flutter packages
+        script: |
+          cd $CM_BUILD_DIR
+          flutter packages pub get
+      - name: Run build_runner
+        script: |
+          cd $CM_BUILD_DIR
+          flutter packages pub run build_runner build --delete-conflicting-outputs
+      - name: Set up code signing
+        script: |
+          cd $CM_BUILD_DIR/ios
+          xcode-project use-profiles
+      - name: Build iOS (no codesign)
+        script: |
+          cd $CM_BUILD_DIR
+          flutter build ios --release --no-codesign \
+            --build-name=1.0.0 \
+            --build-number=$PROJECT_BUILD_NUMBER
+      - name: Fix BoringSSL-GRPC compiler flag and strip from xcconfigs
+        script: |
+          cd $CM_BUILD_DIR/ios
+          find Pods -name "*.xcconfig" -exec sed -i '' 's/-GCC_WARN_INHIBIT_ALL_WARNINGS//g' {} +
+      - name: Archive
+        script: |
+          cd $CM_BUILD_DIR/ios
+          xcode-project build-ipa \
+            --workspace Runner.xcworkspace \
+            --scheme Runner \
+            --archive-flags="-destination 'generic/platform=iOS'"
+      - name: Export IPA
+        script: echo "IPA exported"
+    artifacts:
+      - build/ios/ipa/*.ipa
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true

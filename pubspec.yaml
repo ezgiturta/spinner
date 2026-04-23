@@ -1,0 +1,67 @@
+name: spinner
+description: Vinyl Value & Collection
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.10.7
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Navigation
+  go_router: ^14.2.0
+
+  # Scanner
+  mobile_scanner: ^5.1.1
+  google_mlkit_text_recognition: ^0.13.0
+
+  # Storage
+  sqflite: ^2.3.2
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  flutter_secure_storage: ^9.0.0
+  path_provider: ^2.1.2
+
+  # Network
+  dio: ^5.4.3+1
+  cached_network_image: ^3.3.1
+
+  # Monetization
+  purchases_flutter: ^6.25.0
+
+  # Firebase
+  firebase_core: ^2.32.0
+  firebase_messaging: ^14.9.0
+
+  # Notifications
+  flutter_local_notifications: ^17.0.0
+
+  # Background
+  workmanager: ^0.5.2
+
+  # Audio
+  just_audio: ^0.9.39
+
+  # Charts
+  fl_chart: ^0.68.0
+
+  # UI
+  google_fonts: ^6.1.0
+
+  # URL
+  url_launcher: ^6.2.5
+
+  # Utils
+  intl: ^0.19.0
+  uuid: ^4.3.3
+  shared_preferences: ^2.2.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
