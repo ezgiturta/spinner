@@ -18,6 +18,6 @@ class DefaultFirebaseOptions {
     messagingSenderId: 'TODO',
     projectId: 'spinner-app',
     storageBucket: 'spinner-app.appspot.com',
-    iosBundleId: 'com.spinner.app',
+    iosBundleId: 'com.vinylspinner.collect',
   );
 }
