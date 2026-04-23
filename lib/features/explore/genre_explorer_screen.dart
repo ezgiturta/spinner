@@ -561,7 +561,7 @@ class _GenreExplorerScreenState extends State<GenreExplorerScreen> {
               padding: EdgeInsets.symmetric(horizontal: hPad, vertical: vPad),
               decoration: BoxDecoration(
                 color: isSelected
-                    ? SpinnerTheme.accent.withValues(alpha: 0.25)
+                    ? SpinnerTheme.accent.withOpacity(0.25)
                     : Colors.transparent,
                 borderRadius: BorderRadius.circular(8),
                 border: isSelected
