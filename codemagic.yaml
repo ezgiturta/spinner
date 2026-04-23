@@ -17,20 +17,24 @@ workflows:
         script: |
           cd $CM_BUILD_DIR
           flutter packages pub get
+      - name: Pod install
+        script: |
+          cd $CM_BUILD_DIR/ios
+          pod install --repo-update
+      - name: Fix BoringSSL-GRPC compiler flag
+        script: |
+          cd $CM_BUILD_DIR/ios
+          find Pods -name "*.xcconfig" -exec sed -i '' 's/-GCC_WARN_INHIBIT_ALL_WARNINGS//g' {} +
       - name: Set up code signing
         script: |
           cd $CM_BUILD_DIR/ios
           xcode-project use-profiles
-      - name: Build iOS (no codesign)
+      - name: Build iOS
         script: |
           cd $CM_BUILD_DIR
           flutter build ios --release --no-codesign \
             --build-name=1.0.0 \
             --build-number=$PROJECT_BUILD_NUMBER
-      - name: Fix BoringSSL-GRPC compiler flag and strip from xcconfigs
-        script: |
-          cd $CM_BUILD_DIR/ios
-          find Pods -name "*.xcconfig" -exec sed -i '' 's/-GCC_WARN_INHIBIT_ALL_WARNINGS//g' {} +
       - name: Archive
         script: |
           cd $CM_BUILD_DIR/ios
@@ -38,8 +42,6 @@ workflows:
             --workspace Runner.xcworkspace \
             --scheme Runner \
             --archive-flags="-destination 'generic/platform=iOS'"
-      - name: Export IPA
-        script: echo "IPA exported"
     artifacts:
       - build/ios/ipa/*.ipa
     publishing:
