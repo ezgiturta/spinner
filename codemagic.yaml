@@ -9,8 +9,8 @@ workflows:
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.vinylspinner.collect
-      flutter: 3.24.5
-      xcode: 16.2
+      flutter: stable
+      xcode: latest
       cocoapods: default
     scripts:
       - name: Get Flutter packages
