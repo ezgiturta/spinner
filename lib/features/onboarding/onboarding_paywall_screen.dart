@@ -18,15 +18,15 @@ class OnboardingPaywallScreen extends StatefulWidget {
       _OnboardingPaywallScreenState();
 }
 
-enum _Plan { weekly, monthly }
+enum _Plan { weekly, yearly }
 
 class _OnboardingPaywallScreenState extends State<OnboardingPaywallScreen> {
-  _Plan _selected = _Plan.monthly;
+  _Plan _selected = _Plan.yearly;
   bool _loading = false;
   String? _error;
 
   Package? _weeklyPkg;
-  Package? _monthlyPkg;
+  Package? _yearlyPkg;
 
   @override
   void initState() {
@@ -43,13 +43,13 @@ class _OnboardingPaywallScreenState extends State<OnboardingPaywallScreen> {
       final current = offerings.current;
       if (current == null) return;
       Package? weekly;
-      Package? monthly;
+      Package? yearly;
       for (final pkg in current.availablePackages) {
         switch (pkg.packageType) {
           case PackageType.weekly:
             weekly = pkg;
-          case PackageType.monthly:
-            monthly = pkg;
+          case PackageType.annual:
+            yearly = pkg;
           default:
             break;
         }
@@ -57,8 +57,8 @@ class _OnboardingPaywallScreenState extends State<OnboardingPaywallScreen> {
       if (!mounted) return;
       setState(() {
         _weeklyPkg = weekly;
-        _monthlyPkg = monthly;
-        if (_monthlyPkg == null && _weeklyPkg != null) {
+        _yearlyPkg = yearly;
+        if (_yearlyPkg == null && _weeklyPkg != null) {
           _selected = _Plan.weekly;
         }
       });
@@ -79,7 +79,7 @@ class _OnboardingPaywallScreenState extends State<OnboardingPaywallScreen> {
   }
 
   Future<void> _startTrial() async {
-    final pkg = _selected == _Plan.weekly ? _weeklyPkg : _monthlyPkg;
+    final pkg = _selected == _Plan.weekly ? _weeklyPkg : _yearlyPkg;
     if (pkg == null) {
       setState(() => _error = 'Plan not available. Please try again later.');
       return;
@@ -149,9 +149,9 @@ class _OnboardingPaywallScreenState extends State<OnboardingPaywallScreen> {
   }
 
   String _priceFor(_Plan plan) {
-    final pkg = plan == _Plan.weekly ? _weeklyPkg : _monthlyPkg;
+    final pkg = plan == _Plan.weekly ? _weeklyPkg : _yearlyPkg;
     if (pkg != null) return pkg.storeProduct.priceString;
-    return plan == _Plan.weekly ? '\$5.99' : '\$19.99';
+    return plan == _Plan.weekly ? '\$5.99' : '\$39.99';
   }
 
   @override
@@ -232,11 +232,11 @@ class _OnboardingPaywallScreenState extends State<OnboardingPaywallScreen> {
                   ),
                   const SizedBox(height: 12),
                   _PlanCard(
-                    selected: _selected == _Plan.monthly,
-                    price: _priceFor(_Plan.monthly),
-                    period: '/month',
-                    subtitle: '3-day FREE TRIAL, cancel anytime',
-                    onTap: () => setState(() => _selected = _Plan.monthly),
+                    selected: _selected == _Plan.yearly,
+                    price: _priceFor(_Plan.yearly),
+                    period: '/year',
+                    subtitle: '3-day FREE TRIAL · Just \$0.11/day',
+                    onTap: () => setState(() => _selected = _Plan.yearly),
                   ),
                 ],
               ),
