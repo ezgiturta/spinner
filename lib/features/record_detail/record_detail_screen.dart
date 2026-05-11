@@ -7,8 +7,11 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/ai_access.dart';
 import '../../core/database.dart';
+import '../../core/router.dart';
 import '../../core/theme.dart';
+import 'widgets/album_story_card.dart';
 
 class RecordDetailScreen extends StatefulWidget {
   final String recordId;
@@ -155,6 +158,25 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
     }
   }
 
+  Future<void> _openAiGrader() async {
+    final allowed = await AiAccess.canUseCondition();
+    if (!mounted) return;
+    if (!allowed) {
+      context.push(AppRoutes.paywall);
+      return;
+    }
+    final record = _record;
+    context.push(
+      AppRoutes.gradePath(widget.recordId),
+      extra: {
+        'title': record?['title'] as String?,
+        'artist': record?['artist'] as String?,
+      },
+    );
+    // When the grader returns, refresh in case condition was applied.
+    if (mounted) _loadRecord();
+  }
+
   Future<void> _openDiscogs() async {
     final record = _record;
     final discogsId = record?['discogs_id'];
@@ -254,6 +276,15 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
           _buildValueCard(record),
           const SizedBox(height: 20),
           _buildPriceChart(record),
+          const SizedBox(height: 20),
+          AlbumStoryCard(
+            recordId: widget.recordId,
+            title: (record['title'] as String?) ?? '',
+            artist: (record['artist'] as String?) ?? '',
+            year: record['year'] as int?,
+            label: record['label'] as String?,
+            country: record['pressing_country'] as String?,
+          ),
           const SizedBox(height: 20),
           _buildPressingDetails(record),
           const SizedBox(height: 20),
@@ -659,6 +690,8 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
           const SizedBox(height: 16),
           // Condition dropdown
           _buildConditionDropdown(),
+          const SizedBox(height: 8),
+          _buildAiGradeTrigger(),
           const SizedBox(height: 16),
           // Notes
           TextField(
@@ -799,6 +832,40 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
           ),
         ],
       ],
+    );
+  }
+
+  Widget _buildAiGradeTrigger() {
+    return InkWell(
+      onTap: _openAiGrader,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: SpinnerTheme.accent.withOpacity(0.10),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: SpinnerTheme.accent.withOpacity(0.4)),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.auto_awesome, size: 16, color: SpinnerTheme.accent),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'AI Grade with photo',
+                style: SpinnerTheme.nunito(
+                  size: 13,
+                  weight: FontWeight.w700,
+                  color: SpinnerTheme.accent,
+                ),
+              ),
+            ),
+            Icon(Icons.chevron_right,
+                size: 18, color: SpinnerTheme.accent.withOpacity(0.7)),
+          ],
+        ),
+      ),
     );
   }
 

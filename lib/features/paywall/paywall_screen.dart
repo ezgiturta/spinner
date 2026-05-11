@@ -456,7 +456,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               GestureDetector(
-                onTap: () => _openUrl('https://spinner.app/terms'),
+                onTap: () => _openUrl('https://spinner-legal.vercel.app/terms'),
                 child: Text(
                   'Terms of Use',
                   style: SpinnerTheme.nunito(
@@ -478,7 +478,8 @@ class _PaywallScreenState extends State<PaywallScreen> {
                 ),
               ),
               GestureDetector(
-                onTap: () => _openUrl('https://spinner.app/privacy'),
+                onTap: () =>
+                    _openUrl('https://spinner-legal.vercel.app/privacy'),
                 child: Text(
                   'Privacy Policy',
                   style: SpinnerTheme.nunito(

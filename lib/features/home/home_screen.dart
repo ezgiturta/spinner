@@ -2,10 +2,12 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:scatesdk_flutter/scatesdk_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/database.dart';
 import '../../core/theme.dart';
+import '../ai/mood_picker_sheet.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -15,6 +17,10 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  // Fires HomeScreenOpen once per app lifetime per Scate docs (must NOT fire
+  // on tab navigation, only on the first home open after splash/onboarding).
+  static bool _homeOpenedOnce = false;
+
   bool _loading = true;
   String _userName = '';
   List<String> _genres = [];
@@ -29,6 +35,12 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    if (!_homeOpenedOnce) {
+      _homeOpenedOnce = true;
+      try {
+        ScateSDK.HomeScreenOpen();
+      } catch (_) {}
+    }
     _loadData();
   }
 
@@ -81,6 +93,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     _buildHeader(),
                     if (_totalRecords > 0) _buildQuickStats(),
                     if (_totalRecords == 0) _buildScanCTA(),
+                    if (_totalRecords > 0) _buildAskSpinner(),
                     _buildRecentlyScanned(),
                     _buildExploreGenres(),
                     if (_genres.isNotEmpty) _buildDiscovery(),
@@ -148,6 +161,66 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: Icons.play_arrow,
           ),
         ],
+      ),
+    );
+  }
+
+  // ── Ask Spinner (AI Mood Picker) ──
+
+  Widget _buildAskSpinner() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+      child: InkWell(
+        onTap: () => MoodPickerSheet.show(context),
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: SpinnerTheme.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: SpinnerTheme.accent.withOpacity(0.35)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: SpinnerTheme.accent.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(Icons.auto_awesome,
+                    color: SpinnerTheme.accent, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Ask Spinner',
+                      style: SpinnerTheme.nunito(
+                        size: 15,
+                        weight: FontWeight.w800,
+                        color: SpinnerTheme.white,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '“Pick something for a rainy evening”',
+                      style: SpinnerTheme.nunito(
+                        size: 12,
+                        color: SpinnerTheme.grey,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right,
+                  color: SpinnerTheme.grey.withOpacity(0.7), size: 22),
+            ],
+          ),
+        ),
       ),
     );
   }

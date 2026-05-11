@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/router.dart';
+import 'core/sdk_init.dart';
 import 'core/theme.dart';
 import 'firebase_options.dart';
 
@@ -30,6 +33,11 @@ Future<void> main() async {
   }
 
   runApp(SpinnerApp(prefs: prefs));
+
+  // Heavy SDK init runs AFTER runApp so any SDK failure can't produce a white
+  // screen (App Store would reject under Guideline 2.1(a)).
+  // SdkInit.init() is fully wrapped in try-catch internally.
+  unawaited(SdkInit.init());
 }
 
 class SpinnerApp extends StatelessWidget {

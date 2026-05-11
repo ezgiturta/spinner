@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../features/ai/condition_grader_screen.dart';
 import '../features/home/home_screen.dart';
 import '../features/scan/scan_screen.dart';
 import '../features/collection/collection_wrapper.dart';
+import '../features/onboarding/onboarding_paywall_screen.dart';
 import '../features/onboarding/onboarding_screen.dart';
 import '../features/paywall/paywall_screen.dart';
 import '../features/record_detail/record_detail_screen.dart';
@@ -19,10 +21,13 @@ abstract class AppRoutes {
   static const collection = '/collection';
   static const record = '/record/:id';
   static const onboarding = '/onboarding';
+  static const onboardingPaywall = '/onboarding-paywall';
   static const paywall = '/paywall';
   static const settings = '/settings';
+  static const grade = '/grade/:id';
 
   static String recordPath(String id) => '/record/$id';
+  static String gradePath(String id) => '/grade/$id';
 }
 
 abstract class _PrefKeys {
@@ -45,6 +50,11 @@ GoRouter buildRouter(SharedPreferences prefs) {
         builder: (context, state) => const OnboardingScreen(),
       ),
       GoRoute(
+        path: AppRoutes.onboardingPaywall,
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const OnboardingPaywallScreen(),
+      ),
+      GoRoute(
         path: AppRoutes.paywall,
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => const PaywallScreen(),
@@ -61,6 +71,19 @@ GoRouter buildRouter(SharedPreferences prefs) {
         path: AppRoutes.settings,
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => const SettingsScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.grade,
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          final extra = state.extra as Map<String, dynamic>?;
+          return ConditionGraderScreen(
+            recordId: id,
+            albumTitle: extra?['title'] as String?,
+            artist: extra?['artist'] as String?,
+          );
+        },
       ),
       ShellRoute(
         navigatorKey: _shellNavigatorKey,

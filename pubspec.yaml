@@ -16,6 +16,7 @@ dependencies:
   # Scanner
   mobile_scanner: ^5.1.1
   google_mlkit_text_recognition: ^0.13.0
+  image_picker: ^1.1.2
 
   # Storage
   sqflite: ^2.3.2
@@ -30,6 +31,11 @@ dependencies:
 
   # Monetization
   purchases_flutter: ^6.25.0
+
+  # Attribution & analytics SDKs
+  adjust_sdk: ^5.6.0
+  app_tracking_transparency: ^2.0.6
+  scatesdk_flutter: ^0.4.29
 
   # Firebase
   firebase_core: ^2.32.0

@@ -46,7 +46,13 @@
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>Spinner needs camera access to scan vinyl record barcodes.</string>
+	<string>Spinner needs camera access to scan vinyl record barcodes and photograph records for AI condition grading.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Spinner needs photo library access so you can pick existing record photos for AI condition grading.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Spinner does not use the microphone. This declaration is required because of code in third-party libraries.</string>
+	<key>NSUserTrackingUsageDescription</key>
+	<string>Spinner uses tracking data to personalize record recommendations and improve your experience.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>

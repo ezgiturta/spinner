@@ -14,7 +14,26 @@ class AppDatabase {
     final path = join(await getDatabasesPath(), 'spinner.db');
     return openDatabase(
       path,
-      version: 1,
+      version: 2,
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS ai_stories (
+              record_id TEXT PRIMARY KEY,
+              story_json TEXT NOT NULL,
+              generated_at TEXT NOT NULL
+            )
+          ''');
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS ai_conditions (
+              record_id TEXT PRIMARY KEY,
+              grade_json TEXT NOT NULL,
+              photo_path TEXT,
+              graded_at TEXT NOT NULL
+            )
+          ''');
+        }
+      },
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE records (
@@ -76,7 +95,69 @@ class AppDatabase {
             'CREATE INDEX idx_spins_record ON spins(record_id)');
         await db.execute(
             'CREATE INDEX idx_cleans_record ON cleans(record_id)');
+
+        await db.execute('''
+          CREATE TABLE ai_stories (
+            record_id TEXT PRIMARY KEY,
+            story_json TEXT NOT NULL,
+            generated_at TEXT NOT NULL
+          )
+        ''');
+        await db.execute('''
+          CREATE TABLE ai_conditions (
+            record_id TEXT PRIMARY KEY,
+            grade_json TEXT NOT NULL,
+            photo_path TEXT,
+            graded_at TEXT NOT NULL
+          )
+        ''');
       },
+    );
+  }
+
+  // ── AI Stories ──
+
+  static Future<Map<String, dynamic>?> getAiStory(String recordId) async {
+    final db = await instance;
+    final rows = await db.query('ai_stories',
+        where: 'record_id = ?', whereArgs: [recordId], limit: 1);
+    return rows.isEmpty ? null : rows.first;
+  }
+
+  static Future<void> saveAiStory(String recordId, String storyJson) async {
+    final db = await instance;
+    await db.insert(
+      'ai_stories',
+      {
+        'record_id': recordId,
+        'story_json': storyJson,
+        'generated_at': DateTime.now().toIso8601String(),
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  // ── AI Conditions ──
+
+  static Future<Map<String, dynamic>?> getAiCondition(String recordId) async {
+    final db = await instance;
+    final rows = await db.query('ai_conditions',
+        where: 'record_id = ?', whereArgs: [recordId], limit: 1);
+    return rows.isEmpty ? null : rows.first;
+  }
+
+  static Future<void> saveAiCondition(
+      String recordId, String gradeJson, String? photoPath) async {
+    final db = await instance;
+    await db.insert(
+      'ai_conditions',
+      {
+        'record_id': recordId,
+        'grade_json': gradeJson,
+        'photo_path': photoPath,
+        'graded_at': DateTime.now().toIso8601String(),
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
 

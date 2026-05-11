@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:scatesdk_flutter/scatesdk_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -59,6 +60,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    try {
+      ScateSDK.OnboardingStart();
+    } catch (_) {}
+  }
+
+  @override
   void dispose() {
     _pageController.dispose();
     _nameController.dispose();
@@ -98,8 +107,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       // Never block app startup -- proceed even if prefs fail.
     }
 
+    // OnboardingFinish fires after paywall is dismissed (the paywall is the
+    // final step of onboarding per Scate lifecycle ordering).
     if (!mounted) return;
-    context.go('/home');
+    context.go('/onboarding-paywall');
   }
 
   Future<void> _connectDiscogs() async {
