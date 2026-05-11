@@ -780,10 +780,10 @@ packages:
     dependency: "direct main"
     description:
       name: purchases_flutter
-      sha256: "83f58c4ef331c06af0548b009632ec2c45b119b87bf02a74f8f77a40e0f64bad"
+      sha256: "8d34712aa3201f675eeccaacf45c0b7b025575fc9d0378b2619bb61246e76064"
       url: "https://pub.dev"
     source: hosted
-    version: "6.30.2"
+    version: "8.11.0"
   rxdart:
     dependency: transitive
     description:

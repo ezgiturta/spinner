@@ -71,7 +71,13 @@ class SdkInit {
       log('Scate init failed: $e', name: 'SdkInit');
     }
 
-    // 5. Resolve Adjust ID and forward to RevenueCat + Scate (non-blocking).
+    // 5. Resolve Adjust ID and forward to Scate (non-blocking).
+    // NOTE: We deliberately do NOT call Purchases.setAdjustID() on
+    // purchases_flutter v8 — every set* attribute method crashes with
+    // EXC_BREAKPOINT inside CommonFunctionality (native Swift force-unwrap of
+    // nil) and the crash is NOT catchable from Dart. Adjust→RevenueCat
+    // attribution is wired server-side via the Adjust webhook configured in
+    // the RevenueCat dashboard, so this client-side bridge is not required.
     unawaited(_forwardAdjustIdAsync());
   }
 
@@ -91,15 +97,12 @@ class SdkInit {
       if (adid == null || adid.isEmpty) return;
 
       try {
-        Purchases.setAdjustID(adid);
-      } catch (e) {
-        log('Purchases.setAdjustID failed: $e', name: 'SdkInit');
-      }
-      try {
         ScateSDK.SetAdid(adid);
       } catch (e) {
         log('ScateSDK.SetAdid failed: $e', name: 'SdkInit');
       }
+      // AdjustSetToRevenuecat marks the lifecycle step Scate expects; the
+      // actual ID forwarding happens via the Adjust→RC server-side webhook.
       try {
         ScateSDK.AdjustSetToRevenuecat();
       } catch (_) {}
