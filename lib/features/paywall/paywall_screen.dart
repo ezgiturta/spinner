@@ -12,9 +12,54 @@ class PaywallScreen extends StatefulWidget {
   State<PaywallScreen> createState() => _PaywallScreenState();
 }
 
+enum _Plan { weekly, yearly }
+
 class _PaywallScreenState extends State<PaywallScreen> {
   bool _loading = false;
   String? _error;
+  _Plan _selected = _Plan.yearly;
+  Package? _weeklyPkg;
+  Package? _yearlyPkg;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadOfferings();
+  }
+
+  Future<void> _loadOfferings() async {
+    try {
+      final offerings = await Purchases.getOfferings();
+      final current = offerings.current;
+      if (current == null) return;
+      Package? weekly;
+      Package? yearly;
+      for (final pkg in current.availablePackages) {
+        switch (pkg.packageType) {
+          case PackageType.weekly:
+            weekly = pkg;
+          case PackageType.annual:
+            yearly = pkg;
+          default:
+            break;
+        }
+      }
+      if (!mounted) return;
+      setState(() {
+        _weeklyPkg = weekly;
+        _yearlyPkg = yearly;
+        if (_yearlyPkg == null && _weeklyPkg != null) {
+          _selected = _Plan.weekly;
+        }
+      });
+    } catch (_) {}
+  }
+
+  String _priceFor(_Plan plan) {
+    final pkg = plan == _Plan.weekly ? _weeklyPkg : _yearlyPkg;
+    if (pkg != null) return pkg.storeProduct.priceString;
+    return plan == _Plan.weekly ? '\$5.99' : '\$39.99';
+  }
 
   static const _proFeatures = [
     _Feature(
@@ -60,20 +105,18 @@ class _PaywallScreenState extends State<PaywallScreen> {
   ];
 
   Future<void> _startTrial() async {
+    final pkg = _selected == _Plan.weekly ? _weeklyPkg : _yearlyPkg;
+    if (pkg == null) {
+      setState(() => _error = 'Plan not available. Please try again later.');
+      return;
+    }
     setState(() {
       _loading = true;
       _error = null;
     });
 
     try {
-      final offerings = await Purchases.getOfferings();
-      final current = offerings.current;
-      if (current == null || current.availablePackages.isEmpty) {
-        throw Exception('No offerings available.');
-      }
-
-      final package = current.availablePackages.first;
-      await Purchases.purchasePackage(package);
+      await Purchases.purchasePackage(pkg);
 
       if (!mounted) return;
       Navigator.of(context).pop(true);
@@ -113,6 +156,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
           CustomScrollView(
             slivers: [
               SliverToBoxAdapter(child: _buildHeader()),
+              SliverToBoxAdapter(child: _buildPlanPicker()),
               SliverToBoxAdapter(child: _buildFeaturesList()),
               SliverToBoxAdapter(child: _buildComparison()),
               // Bottom padding for CTA
@@ -185,15 +229,6 @@ class _PaywallScreenState extends State<PaywallScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            '\$2.99/month',
-            style: SpinnerTheme.nunito(
-              size: 18,
-              weight: FontWeight.w700,
-              color: SpinnerTheme.accent,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
             'Start with a 7-day free trial',
             style: SpinnerTheme.nunito(
               size: 14,
@@ -203,6 +238,159 @@ class _PaywallScreenState extends State<PaywallScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildPlanPicker() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
+      child: Column(
+        children: [
+          _buildPlanCard(
+            plan: _Plan.yearly,
+            label: 'Yearly',
+            sub: '7 day free trial, then billed yearly',
+            price: _priceFor(_Plan.yearly),
+            priceSub: 'per year',
+            badge: 'Best value',
+          ),
+          const SizedBox(height: 12),
+          _buildPlanCard(
+            plan: _Plan.weekly,
+            label: 'Weekly',
+            sub: '7 day free trial, then billed weekly',
+            price: _priceFor(_Plan.weekly),
+            priceSub: 'per week',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlanCard({
+    required _Plan plan,
+    required String label,
+    required String sub,
+    required String price,
+    required String priceSub,
+    String? badge,
+  }) {
+    final selected = _selected == plan;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Material(
+          color: selected
+              ? SpinnerTheme.accent.withOpacity(0.10)
+              : SpinnerTheme.surface,
+          borderRadius: BorderRadius.circular(14),
+          child: InkWell(
+            onTap: () => setState(() => _selected = plan),
+            borderRadius: BorderRadius.circular(14),
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: selected ? SpinnerTheme.accent : SpinnerTheme.border,
+                  width: selected ? 1.8 : 1,
+                ),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 22,
+                    height: 22,
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? SpinnerTheme.accent
+                          : Colors.transparent,
+                      border: Border.all(
+                        color: selected
+                            ? SpinnerTheme.accent
+                            : SpinnerTheme.grey,
+                        width: 1.4,
+                      ),
+                      shape: BoxShape.circle,
+                    ),
+                    child: selected
+                        ? Icon(Icons.check,
+                            size: 14, color: SpinnerTheme.white)
+                        : null,
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          label,
+                          style: SpinnerTheme.nunito(
+                            size: 16,
+                            weight: FontWeight.w700,
+                            color: SpinnerTheme.white,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          sub,
+                          style: SpinnerTheme.nunito(
+                            size: 12,
+                            weight: FontWeight.w400,
+                            color: SpinnerTheme.grey,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        price,
+                        style: SpinnerTheme.nunito(
+                          size: 16,
+                          weight: FontWeight.w800,
+                          color: SpinnerTheme.white,
+                        ),
+                      ),
+                      Text(
+                        priceSub,
+                        style: SpinnerTheme.nunito(
+                          size: 11,
+                          weight: FontWeight.w500,
+                          color: SpinnerTheme.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        if (badge != null)
+          Positioned(
+            top: -8,
+            right: 14,
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: SpinnerTheme.accent,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                badge,
+                style: SpinnerTheme.nunito(
+                  size: 10,
+                  weight: FontWeight.w800,
+                  color: SpinnerTheme.white,
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 

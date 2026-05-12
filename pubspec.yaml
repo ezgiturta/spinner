@@ -37,8 +37,6 @@ dependencies:
   app_tracking_transparency: ^2.0.6
   scatesdk_flutter: ^0.4.29
 
-  # Firebase
-  firebase_core: ^2.32.0
   # Notifications
   flutter_local_notifications: ^17.0.0
 
