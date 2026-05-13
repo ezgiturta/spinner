@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
+import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/database.dart';
+import '../../core/router.dart';
 import '../../core/theme.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -62,6 +64,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
         backgroundColor: SpinnerTheme.surface,
       ),
     );
+  }
+
+  Future<void> _restorePurchases() async {
+    try {
+      final info = await Purchases.restorePurchases();
+      if (!mounted) return;
+      final hasActive = info.entitlements.active.isNotEmpty;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            hasActive
+                ? 'Subscription restored.'
+                : 'No active subscription found.',
+            style: SpinnerTheme.nunito(size: 14, color: SpinnerTheme.white),
+          ),
+          backgroundColor: SpinnerTheme.surface,
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Restore failed. Please try again.',
+            style: SpinnerTheme.nunito(size: 14, color: SpinnerTheme.white),
+          ),
+          backgroundColor: SpinnerTheme.red,
+        ),
+      );
+    }
   }
 
   Future<void> _syncCollection() async {
@@ -271,6 +303,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         children: [
+          _buildSectionHeader('Subscription'),
+          _buildRow(
+            icon: Icons.star_outline,
+            title: 'Upgrade to Pro',
+            trailing: Icon(Icons.chevron_right, color: SpinnerTheme.grey),
+            onTap: () => context.push(AppRoutes.paywall),
+          ),
+          _buildRow(
+            icon: Icons.restore,
+            title: 'Restore Purchases',
+            trailing: Icon(Icons.chevron_right, color: SpinnerTheme.grey),
+            onTap: _restorePurchases,
+          ),
+
+          const SizedBox(height: 24),
           _buildSectionHeader('Account'),
           _buildRow(
             icon: Icons.album,
