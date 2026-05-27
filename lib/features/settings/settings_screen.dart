@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 import 'package:go_router/go_router.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/database.dart';
+import '../../core/discogs_api.dart';
 import '../../core/router.dart';
 import '../../core/theme.dart';
 
@@ -41,16 +43,60 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _connectDiscogs() async {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Coming soon',
-          style: SpinnerTheme.nunito(size: 14, color: SpinnerTheme.white),
+    // OAuth 1.0a — three steps:
+    //   1) ask Discogs for a request token, get an authorize URL back
+    //   2) open it in an in-app browser; Discogs redirects to our
+    //      spinner://discogs-callback URL once the user clicks Approve
+    //   3) exchange the verifier in the callback for a permanent access
+    //      token, persisted by DiscogsApi via flutter_secure_storage
+    const callbackScheme = 'spinner';
+    const callbackUrl = '$callbackScheme://discogs-callback';
+    final api = DiscogsApi();
+
+    void showError(String msg) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            msg,
+            style: SpinnerTheme.nunito(size: 14, color: SpinnerTheme.white),
+          ),
+          backgroundColor: SpinnerTheme.red,
         ),
-        backgroundColor: SpinnerTheme.surface,
-      ),
-    );
+      );
+    }
+
+    try {
+      final auth = await api.getAuthorizationUrl(callbackUrl);
+      final resultUri = await FlutterWebAuth2.authenticate(
+        url: auth.authorizeUrl,
+        callbackUrlScheme: callbackScheme,
+      );
+      final params = Uri.parse(resultUri).queryParameters;
+      final verifier = params['oauth_verifier'];
+      if (verifier == null || verifier.isEmpty) {
+        showError('Authorization was cancelled.');
+        return;
+      }
+      await api.completeAuthentication(
+        requestToken: auth.requestToken,
+        requestSecret: auth.requestSecret,
+        oauthVerifier: verifier,
+      );
+      if (!mounted) return;
+      setState(() => _discogsConnected = true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Connected to Discogs.',
+            style: SpinnerTheme.nunito(size: 14, color: SpinnerTheme.white),
+          ),
+          backgroundColor: SpinnerTheme.green,
+        ),
+      );
+    } catch (e) {
+      showError('Discogs connection failed. Please try again.');
+    }
   }
 
   Future<void> _connectSoundCloud() async {
