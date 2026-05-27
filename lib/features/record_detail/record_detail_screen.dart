@@ -5,11 +5,13 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/ai_access.dart';
 import '../../core/database.dart';
 import '../../core/ebay_api.dart';
+import '../../core/genre_likes.dart';
 import '../../core/reverb_api.dart';
 import '../../core/router.dart';
 import '../../core/theme.dart';
@@ -337,6 +339,8 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
             color: SpinnerTheme.greyLight,
           ),
         ),
+        const SizedBox(height: 8),
+        _TasteMatchChip(record: record),
         const SizedBox(height: 6),
         Wrap(
           spacing: 16,
@@ -1282,6 +1286,87 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
   }
 }
 
+
+/// Suitability chip — compares the record's genres (string CSV stored at
+/// scan time) against the user's selected taste (onboarding genres + any
+/// long-pressed genres from the Explore page). Hides itself when either
+/// side is empty so it never shows a misleading 0% or 100%.
+class _TasteMatchChip extends StatefulWidget {
+  final Map<String, dynamic> record;
+  const _TasteMatchChip({required this.record});
+  @override
+  State<_TasteMatchChip> createState() => _TasteMatchChipState();
+}
+
+class _TasteMatchChipState extends State<_TasteMatchChip> {
+  int? _pct;
+
+  @override
+  void initState() {
+    super.initState();
+    _compute();
+  }
+
+  Future<void> _compute() async {
+    final recordGenresRaw = (widget.record['genre'] as String? ?? '').trim();
+    if (recordGenresRaw.isEmpty) return;
+    final recordGenres = recordGenresRaw
+        .split(RegExp(r'[,/]'))
+        .map((s) => s.trim().toLowerCase())
+        .where((s) => s.isNotEmpty)
+        .toSet();
+    if (recordGenres.isEmpty) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final tasteList = prefs.getStringList('genres') ?? const <String>[];
+    final liked = await GenreLikes.instance.getAll();
+    final taste = <String>{
+      for (final g in tasteList) g.toLowerCase(),
+      for (final g in liked) g.toLowerCase(),
+    };
+    if (taste.isEmpty) return;
+
+    // Match = how many of the record's genres are in the user's taste set,
+    // normalized by record genres (so a record tagged exactly with a liked
+    // genre = 100%, even if user likes many other things).
+    final hits = recordGenres.where(taste.contains).length;
+    final pct = (hits / recordGenres.length * 100).round();
+    if (!mounted) return;
+    setState(() => _pct = pct);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pct = _pct;
+    if (pct == null || pct == 0) return const SizedBox.shrink();
+    final highMatch = pct >= 60;
+    final color = highMatch ? SpinnerTheme.green : SpinnerTheme.accent;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.18),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withOpacity(0.45), width: 1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(highMatch ? Icons.favorite : Icons.favorite_border,
+              size: 13, color: color),
+          const SizedBox(width: 6),
+          Text(
+            '$pct% your taste',
+            style: SpinnerTheme.nunito(
+              size: 12,
+              weight: FontWeight.w700,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 /// Find cheapest copies card — fetches live cheapest listings from eBay and
 /// Reverb when API keys are present, falls back to deep-link buttons for any

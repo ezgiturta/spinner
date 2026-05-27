@@ -260,10 +260,19 @@ class _ScanScreenState extends State<ScanScreen>
       if (!mounted) return;
 
       if (results.isEmpty) {
+        // Aggressive UX: when a barcode read returned nothing from Discogs,
+        // don't make the user tap another button — auto-launch the OCR
+        // fallback so they just snap the back cover once and we keep going.
+        if (barcode != null && _tabController.index == 0) {
+          setState(() {
+            _isSearching = false;
+            _errorMessage = 'Barcode not in Discogs. Snap the back cover and I\'ll read the text.';
+          });
+          await _runOcrFallback();
+          return;
+        }
         setState(() {
-          _errorMessage = barcode != null
-              ? "Barcode not in Discogs. Try Read text from cover below, or switch to Cover Art / Manual Search."
-              : 'No results found. Try a different search.';
+          _errorMessage = 'No results found. Try a different search.';
           _isSearching = false;
         });
         return;
@@ -318,7 +327,13 @@ class _ScanScreenState extends State<ScanScreen>
       'artist': artist,
       'year': year,
       'cover_url': coverUrl,
-      'genre': result['genre'] as String? ?? '',
+      // Discogs returns 'genre' as a list of strings; flatten to comma list.
+      'genre': () {
+        final g = result['genre'];
+        if (g is List) return g.cast<String>().join(', ');
+        if (g is String) return g;
+        return '';
+      }(),
       'in_collection': 1,
       'in_wantlist': 0,
       'synced_at': DateTime.now().toIso8601String(),

@@ -6,6 +6,7 @@ import 'package:just_audio/just_audio.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/database.dart';
+import '../../core/genre_likes.dart';
 import '../../core/itunes_api.dart';
 import '../../core/theme.dart';
 
@@ -273,12 +274,39 @@ class _GenreExplorerScreenState extends State<GenreExplorerScreen> {
   bool _isPlaying = false;
 
   final _uuid = const Uuid();
+  Set<String> _likedGenres = const <String>{};
+
+  @override
+  void initState() {
+    super.initState();
+    GenreLikes.instance.getAll().then((set) {
+      if (mounted) setState(() => _likedGenres = set);
+    });
+  }
 
   @override
   void dispose() {
     _searchController.dispose();
     _audioPlayer.dispose();
     super.dispose();
+  }
+
+  Future<void> _toggleLike(_Genre genre) async {
+    final nowLiked = await GenreLikes.instance.toggle(genre.name);
+    if (!mounted) return;
+    setState(() {
+      _likedGenres = GenreLikes.instance.getAllSync();
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: SpinnerTheme.surface,
+        duration: const Duration(milliseconds: 900),
+        content: Text(
+          nowLiked ? '${genre.name} added to your taste' : '${genre.name} removed',
+          style: SpinnerTheme.nunito(size: 13, color: SpinnerTheme.white),
+        ),
+      ),
+    );
   }
 
   List<_Genre> get _filteredGenres {
@@ -546,12 +574,15 @@ class _GenreExplorerScreenState extends State<GenreExplorerScreen> {
         runSpacing: 2,
         children: genres.map((g) {
           final isSelected = _selectedGenre?.name == g.name;
-          final fontSize = 11.0 + g.popularity * 16.0; // 11-27
+          final isLiked = _likedGenres.contains(g.name);
+          // Liked genres get a +6pt size boost so they pop out of the cloud.
+          final fontSize = 11.0 + g.popularity * 16.0 + (isLiked ? 6.0 : 0.0);
           final hPad = 4.0 + g.popularity * 8.0;
           final vPad = 2.0 + g.popularity * 4.0;
 
           return GestureDetector(
             onTap: () => _onGenreTap(g),
+            onLongPress: () => _toggleLike(g),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               margin: EdgeInsets.symmetric(
@@ -566,15 +597,26 @@ class _GenreExplorerScreenState extends State<GenreExplorerScreen> {
                 borderRadius: BorderRadius.circular(8),
                 border: isSelected
                     ? Border.all(color: SpinnerTheme.accent, width: 1.5)
-                    : null,
+                    : (isLiked
+                        ? Border.all(color: SpinnerTheme.accent.withOpacity(0.4), width: 1)
+                        : null),
               ),
-              child: Text(
-                g.name,
-                style: SpinnerTheme.nunito(
-                  size: fontSize,
-                  weight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                  color: isSelected ? SpinnerTheme.accent : g.color,
-                ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (isLiked) ...[
+                    Icon(Icons.favorite, color: SpinnerTheme.accent, size: fontSize * 0.7),
+                    const SizedBox(width: 4),
+                  ],
+                  Text(
+                    g.name,
+                    style: SpinnerTheme.nunito(
+                      size: fontSize,
+                      weight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                      color: isSelected ? SpinnerTheme.accent : g.color,
+                    ),
+                  ),
+                ],
               ),
             ),
           );
