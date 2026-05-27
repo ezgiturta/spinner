@@ -229,7 +229,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Start with a 7-day free trial',
+            'Unlock the full scanner, value lookups, and cleaning log.',
             style: SpinnerTheme.nunito(
               size: 14,
               weight: FontWeight.w400,
@@ -249,7 +249,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
           _buildPlanCard(
             plan: _Plan.yearly,
             label: 'Yearly',
-            sub: '7 day free trial, then billed yearly',
+            sub: 'Billed yearly · cancel anytime',
             price: _priceFor(_Plan.yearly),
             priceSub: 'per year',
             badge: 'Best value',
@@ -258,7 +258,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
           _buildPlanCard(
             plan: _Plan.weekly,
             label: 'Weekly',
-            sub: '7 day free trial, then billed weekly',
+            sub: 'Billed weekly · cancel anytime',
             price: _priceFor(_Plan.weekly),
             priceSub: 'per week',
           ),
@@ -630,7 +630,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                           ),
                         )
                       : Text(
-                          'Start Free Trial',
+                          'Subscribe',
                           style: SpinnerTheme.nunito(
                             size: 17,
                             weight: FontWeight.w700,

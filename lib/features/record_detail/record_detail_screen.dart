@@ -9,6 +9,8 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/ai_access.dart';
 import '../../core/database.dart';
+import '../../core/ebay_api.dart';
+import '../../core/reverb_api.dart';
 import '../../core/router.dart';
 import '../../core/theme.dart';
 import 'widgets/album_story_card.dart';
@@ -275,7 +277,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
           const SizedBox(height: 20),
           _buildValueCard(record),
           const SizedBox(height: 20),
-          _buildCheapestCopiesSection(record),
+          _CheapestCopiesCard(record: record),
           const SizedBox(height: 20),
           _buildPriceChart(record),
           const SizedBox(height: 20),
@@ -446,89 +448,6 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // Find cheapest copies — Discogs marketplace, eBay, Reverb deep links.
-  // No API calls; each button opens the marketplace's search results for this
-  // record so the user can compare prices across sources beyond Discogs.
-  // ---------------------------------------------------------------------------
-
-  Widget _buildCheapestCopiesSection(Map<String, dynamic> record) {
-    final discogsId = record['discogs_id'] as int?;
-    final title = (record['title'] as String? ?? '').trim();
-    final artist = (record['artist'] as String? ?? '').trim();
-    final query = [artist, title, 'vinyl']
-        .where((s) => s.isNotEmpty)
-        .join(' ');
-    final encoded = Uri.encodeQueryComponent(query);
-
-    final discogsUrl = discogsId != null
-        ? 'https://www.discogs.com/sell/release/$discogsId?sort=price%2Casc'
-        : 'https://www.discogs.com/search?q=$encoded&type=all';
-    final ebayUrl =
-        'https://www.ebay.com/sch/i.html?_nkw=$encoded&_sop=15'; // price+shipping low→high
-    final reverbUrl =
-        'https://reverb.com/marketplace?query=$encoded&product_type=accessories'; // vinyl lives under accessories on reverb
-    final vintedUrl = 'https://www.vinted.com/catalog?search_text=$encoded';
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: SpinnerTheme.card,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: SpinnerTheme.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.savings_outlined,
-                  size: 16, color: SpinnerTheme.accent),
-              const SizedBox(width: 6),
-              Text(
-                'Find cheapest copies',
-                style: SpinnerTheme.nunito(
-                  size: 13,
-                  weight: FontWeight.w600,
-                  color: SpinnerTheme.grey,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Discogs prices high. Search across sources sorted by price ascending.',
-            style: SpinnerTheme.nunito(
-              size: 12,
-              color: SpinnerTheme.greyLight,
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 14),
-          _CheapestLinkButton(
-            label: 'Discogs Marketplace · price low → high',
-            url: discogsUrl,
-          ),
-          const SizedBox(height: 8),
-          _CheapestLinkButton(
-            label: 'eBay · cheapest first',
-            url: ebayUrl,
-          ),
-          const SizedBox(height: 8),
-          _CheapestLinkButton(
-            label: 'Reverb · vinyl marketplace',
-            url: reverbUrl,
-          ),
-          const SizedBox(height: 8),
-          _CheapestLinkButton(
-            label: 'Vinted · secondhand (EU)',
-            url: vintedUrl,
-          ),
-        ],
-      ),
-    );
-  }
 
   // ---------------------------------------------------------------------------
   // Price chart
@@ -1363,6 +1282,284 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
   }
 }
 
+
+/// Find cheapest copies card — fetches live cheapest listings from eBay and
+/// Reverb when API keys are present, falls back to deep-link buttons for any
+/// source without an API integration (Discogs marketplace + Vinted), and for
+/// the API sources when the keys are missing or no results returned.
+class _CheapestCopiesCard extends StatefulWidget {
+  final Map<String, dynamic> record;
+  const _CheapestCopiesCard({required this.record});
+
+  @override
+  State<_CheapestCopiesCard> createState() => _CheapestCopiesCardState();
+}
+
+class _CheapestCopiesCardState extends State<_CheapestCopiesCard> {
+  List<EbayListing> _ebay = const [];
+  List<ReverbListing> _reverb = const [];
+  bool _loading = true;
+
+  String get _query {
+    final title = (widget.record['title'] as String? ?? '').trim();
+    final artist = (widget.record['artist'] as String? ?? '').trim();
+    return [artist, title, 'vinyl'].where((s) => s.isNotEmpty).join(' ');
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _fetch();
+  }
+
+  Future<void> _fetch() async {
+    final q = _query;
+    if (q.trim().isEmpty) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
+    final results = await Future.wait([
+      EbayApi().searchVinyl(q, limit: 3),
+      ReverbApi().searchVinyl(q, limit: 3),
+    ]);
+    if (!mounted) return;
+    setState(() {
+      _ebay = results[0] as List<EbayListing>;
+      _reverb = results[1] as List<ReverbListing>;
+      _loading = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final discogsId = widget.record['discogs_id'] as int?;
+    final encoded = Uri.encodeQueryComponent(_query);
+    final discogsUrl = discogsId != null
+        ? 'https://www.discogs.com/sell/release/$discogsId?sort=price%2Casc'
+        : 'https://www.discogs.com/search?q=$encoded&type=all';
+    final ebayUrl = 'https://www.ebay.com/sch/i.html?_nkw=$encoded&_sop=15';
+    final reverbUrl =
+        'https://reverb.com/marketplace?query=$encoded&product_type=accessories';
+    final vintedUrl = 'https://www.vinted.com/catalog?search_text=$encoded';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: SpinnerTheme.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: SpinnerTheme.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.savings_outlined,
+                  size: 16, color: SpinnerTheme.accent),
+              const SizedBox(width: 6),
+              Text(
+                'Find cheapest copies',
+                style: SpinnerTheme.nunito(
+                  size: 13,
+                  weight: FontWeight.w600,
+                  color: SpinnerTheme.grey,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Discogs prices high. We scan eBay and Reverb live, plus deep-link the rest.',
+            style: SpinnerTheme.nunito(
+              size: 12,
+              color: SpinnerTheme.greyLight,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 14),
+          if (_loading) ...[
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: SizedBox(
+                  height: 18,
+                  width: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: SpinnerTheme.accent,
+                  ),
+                ),
+              ),
+            ),
+          ] else ...[
+            for (final l in _ebay) _LiveListingTile.fromEbay(l),
+            for (final l in _reverb) _LiveListingTile.fromReverb(l),
+            if (_ebay.isNotEmpty || _reverb.isNotEmpty)
+              const SizedBox(height: 6),
+          ],
+          _CheapestLinkButton(
+            label: 'Discogs Marketplace · price low → high',
+            url: discogsUrl,
+          ),
+          const SizedBox(height: 8),
+          _CheapestLinkButton(
+            label: _ebay.isEmpty ? 'eBay · cheapest first' : 'See all on eBay',
+            url: ebayUrl,
+          ),
+          const SizedBox(height: 8),
+          _CheapestLinkButton(
+            label: _reverb.isEmpty
+                ? 'Reverb · vinyl marketplace'
+                : 'See all on Reverb',
+            url: reverbUrl,
+          ),
+          const SizedBox(height: 8),
+          _CheapestLinkButton(
+            label: 'Vinted · secondhand (EU)',
+            url: vintedUrl,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Single inline listing row (price + source + condition + open).
+class _LiveListingTile extends StatelessWidget {
+  final String source;
+  final String title;
+  final double price;
+  final String currency;
+  final String? condition;
+  final String? url;
+
+  const _LiveListingTile({
+    required this.source,
+    required this.title,
+    required this.price,
+    required this.currency,
+    this.condition,
+    this.url,
+  });
+
+  factory _LiveListingTile.fromEbay(EbayListing l) => _LiveListingTile(
+        source: 'eBay',
+        title: l.title,
+        price: l.price ?? 0,
+        currency: l.currency,
+        condition: l.condition,
+        url: l.itemWebUrl,
+      );
+
+  factory _LiveListingTile.fromReverb(ReverbListing l) => _LiveListingTile(
+        source: 'Reverb',
+        title: l.title,
+        price: l.price ?? 0,
+        currency: l.currency,
+        condition: l.condition,
+        url: l.webUrl,
+      );
+
+  Future<void> _open() async {
+    final raw = url;
+    if (raw == null) return;
+    final uri = Uri.tryParse(raw);
+    if (uri != null) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final fmt = NumberFormat.currency(symbol: _symbol(currency), decimalDigits: 2);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: InkWell(
+        onTap: url == null ? null : _open,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: SpinnerTheme.bg,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: SpinnerTheme.border),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: SpinnerTheme.accent.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  source.toUpperCase(),
+                  style: SpinnerTheme.nunito(
+                    size: 9,
+                    weight: FontWeight.w700,
+                    color: SpinnerTheme.accent,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: SpinnerTheme.nunito(
+                        size: 12,
+                        weight: FontWeight.w600,
+                        color: SpinnerTheme.white,
+                      ),
+                    ),
+                    if (condition != null && condition!.isNotEmpty)
+                      Text(
+                        condition!,
+                        style: SpinnerTheme.nunito(
+                          size: 10,
+                          color: SpinnerTheme.greyLight,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                fmt.format(price),
+                style: SpinnerTheme.nunito(
+                  size: 14,
+                  weight: FontWeight.w700,
+                  color: SpinnerTheme.green,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(Icons.open_in_new,
+                  size: 12, color: SpinnerTheme.greyLight),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _symbol(String currency) {
+    switch (currency.toUpperCase()) {
+      case 'USD':
+        return '\$';
+      case 'EUR':
+        return '€';
+      case 'GBP':
+        return '£';
+      default:
+        return '$currency ';
+    }
+  }
+}
 
 /// Outlined button that opens a marketplace search URL in the browser.
 /// Used in the "Find cheapest copies" section of record_detail.
