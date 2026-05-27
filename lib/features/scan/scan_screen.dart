@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:uuid/uuid.dart';
 
@@ -131,12 +133,67 @@ class _ScanScreenState extends State<ScanScreen>
     final barcode = capture.barcodes.firstOrNull;
     if (barcode == null || barcode.rawValue == null) return;
 
-    final code = barcode.rawValue!;
+    final code = barcode.rawValue!.trim();
     if (code.isEmpty) return;
 
     _barcodeProcessing = true;
     await _searchDiscogs(barcode: code);
     _barcodeProcessing = false;
+  }
+
+  // ---------------------------------------------------------------------------
+  // OCR fallback — when barcode fails, the user can snap the back cover and
+  // the app will read the artist + title from the text and search by query.
+  // Uses Google ML Kit text recognition (already in pubspec).
+  // ---------------------------------------------------------------------------
+
+  Future<void> _runOcrFallback() async {
+    final picker = ImagePicker();
+    final XFile? photo = await picker.pickImage(
+      source: ImageSource.camera,
+      preferredCameraDevice: CameraDevice.rear,
+    );
+    if (photo == null) return;
+
+    setState(() {
+      _isSearching = true;
+      _errorMessage = null;
+    });
+
+    final recognizer = TextRecognizer(script: TextRecognitionScript.latin);
+    try {
+      final input = InputImage.fromFilePath(photo.path);
+      final result = await recognizer.processImage(input);
+      // Heuristic: take the two longest distinct lines — usually the artist
+      // name + the album title dominate the back-cover text. Strip noise.
+      final lines = <String>[
+        for (final block in result.blocks)
+          for (final line in block.lines)
+            line.text.trim(),
+      ]
+          .where((s) => s.length >= 3 && s.length <= 80)
+          .where((s) => !RegExp(r'^[\d\s\W]+$').hasMatch(s))
+          .toList()
+        ..sort((a, b) => b.length.compareTo(a.length));
+      final candidates = lines.take(2).join(' ');
+      if (candidates.isEmpty) {
+        if (!mounted) return;
+        setState(() {
+          _isSearching = false;
+          _errorMessage = "Couldn't read any text. Try cropping closer to the artist + title.";
+        });
+        return;
+      }
+      await _searchDiscogs(query: candidates);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isSearching = false;
+        _errorMessage = 'Text recognition failed: $e';
+      });
+    } finally {
+      await recognizer.close();
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -204,7 +261,9 @@ class _ScanScreenState extends State<ScanScreen>
 
       if (results.isEmpty) {
         setState(() {
-          _errorMessage = 'No results found. Try a different search.';
+          _errorMessage = barcode != null
+              ? "Barcode not in Discogs. Try Read text from cover below, or switch to Cover Art / Manual Search."
+              : 'No results found. Try a different search.';
           _isSearching = false;
         });
         return;
@@ -364,28 +423,54 @@ class _ScanScreenState extends State<ScanScreen>
   }
 
   Widget _buildErrorBanner() {
+    final isBarcodeMiss = _tabController.index == 0 &&
+        (_errorMessage?.startsWith('Barcode not in') ?? false);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       color: SpinnerTheme.red.withOpacity(0.15),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Icon(Icons.error_outline, color: SpinnerTheme.red, size: 20),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              _errorMessage!,
-              style: SpinnerTheme.nunito(
-                size: 13,
-                weight: FontWeight.w500,
-                color: SpinnerTheme.red,
+          Row(
+            children: [
+              Icon(Icons.error_outline, color: SpinnerTheme.red, size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  _errorMessage!,
+                  style: SpinnerTheme.nunito(
+                    size: 13,
+                    weight: FontWeight.w500,
+                    color: SpinnerTheme.red,
+                  ),
+                ),
+              ),
+              GestureDetector(
+                onTap: () => setState(() => _errorMessage = null),
+                child: Icon(Icons.close, color: SpinnerTheme.red, size: 18),
+              ),
+            ],
+          ),
+          if (isBarcodeMiss) ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _isSearching ? null : _runOcrFallback,
+                icon: const Icon(Icons.text_fields, size: 18),
+                label: const Text('Read text from cover'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: SpinnerTheme.accent,
+                  foregroundColor: SpinnerTheme.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
               ),
             ),
-          ),
-          GestureDetector(
-            onTap: () => setState(() => _errorMessage = null),
-            child: Icon(Icons.close, color: SpinnerTheme.red, size: 18),
-          ),
+          ],
         ],
       ),
     );
