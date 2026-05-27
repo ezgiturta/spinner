@@ -275,6 +275,8 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
           const SizedBox(height: 20),
           _buildValueCard(record),
           const SizedBox(height: 20),
+          _buildCheapestCopiesSection(record),
+          const SizedBox(height: 20),
           _buildPriceChart(record),
           const SizedBox(height: 20),
           AlbumStoryCard(
@@ -441,6 +443,90 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Find cheapest copies — Discogs marketplace, eBay, Reverb deep links.
+  // No API calls; each button opens the marketplace's search results for this
+  // record so the user can compare prices across sources beyond Discogs.
+  // ---------------------------------------------------------------------------
+
+  Widget _buildCheapestCopiesSection(Map<String, dynamic> record) {
+    final discogsId = record['discogs_id'] as int?;
+    final title = (record['title'] as String? ?? '').trim();
+    final artist = (record['artist'] as String? ?? '').trim();
+    final query = [artist, title, 'vinyl']
+        .where((s) => s.isNotEmpty)
+        .join(' ');
+    final encoded = Uri.encodeQueryComponent(query);
+
+    final discogsUrl = discogsId != null
+        ? 'https://www.discogs.com/sell/release/$discogsId?sort=price%2Casc'
+        : 'https://www.discogs.com/search?q=$encoded&type=all';
+    final ebayUrl =
+        'https://www.ebay.com/sch/i.html?_nkw=$encoded&_sop=15'; // price+shipping low→high
+    final reverbUrl =
+        'https://reverb.com/marketplace?query=$encoded&product_type=accessories'; // vinyl lives under accessories on reverb
+    final vintedUrl = 'https://www.vinted.com/catalog?search_text=$encoded';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: SpinnerTheme.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: SpinnerTheme.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.savings_outlined,
+                  size: 16, color: SpinnerTheme.accent),
+              const SizedBox(width: 6),
+              Text(
+                'Find cheapest copies',
+                style: SpinnerTheme.nunito(
+                  size: 13,
+                  weight: FontWeight.w600,
+                  color: SpinnerTheme.grey,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Discogs prices high. Search across sources sorted by price ascending.',
+            style: SpinnerTheme.nunito(
+              size: 12,
+              color: SpinnerTheme.greyLight,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 14),
+          _CheapestLinkButton(
+            label: 'Discogs Marketplace · price low → high',
+            url: discogsUrl,
+          ),
+          const SizedBox(height: 8),
+          _CheapestLinkButton(
+            label: 'eBay · cheapest first',
+            url: ebayUrl,
+          ),
+          const SizedBox(height: 8),
+          _CheapestLinkButton(
+            label: 'Reverb · vinyl marketplace',
+            url: reverbUrl,
+          ),
+          const SizedBox(height: 8),
+          _CheapestLinkButton(
+            label: 'Vinted · secondhand (EU)',
+            url: vintedUrl,
+          ),
+        ],
+      ),
     );
   }
 
@@ -1271,6 +1357,50 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+
+/// Outlined button that opens a marketplace search URL in the browser.
+/// Used in the "Find cheapest copies" section of record_detail.
+class _CheapestLinkButton extends StatelessWidget {
+  final String label;
+  final String url;
+  const _CheapestLinkButton({required this.label, required this.url});
+
+  Future<void> _open() async {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return;
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: _open,
+        icon: const Icon(Icons.open_in_new, size: 14),
+        label: Text(
+          label,
+          style: SpinnerTheme.nunito(
+            size: 13,
+            weight: FontWeight.w600,
+            color: SpinnerTheme.white,
+          ),
+        ),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: SpinnerTheme.white,
+          backgroundColor: SpinnerTheme.bg,
+          side: BorderSide(color: SpinnerTheme.border),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+          alignment: Alignment.centerLeft,
         ),
       ),
     );
