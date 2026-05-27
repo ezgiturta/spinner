@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 import 'package:go_router/go_router.dart';
 import 'package:scatesdk_flutter/scatesdk_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/discogs_api.dart';
 import '../../core/theme.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -115,9 +117,26 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   Future<void> _connectDiscogs() async {
     setState(() => _connectingDiscogs = true);
+    const callbackScheme = 'spinner';
+    const callbackUrl = '$callbackScheme://discogs-callback';
+    final api = DiscogsApi();
     try {
-      // TODO: Implement Discogs OAuth flow.
-      await Future.delayed(const Duration(seconds: 2));
+      final auth = await api.getAuthorizationUrl(callbackUrl);
+      final resultUri = await FlutterWebAuth2.authenticate(
+        url: auth.authorizeUrl,
+        callbackUrlScheme: callbackScheme,
+      );
+      final verifier = Uri.parse(resultUri).queryParameters['oauth_verifier'];
+      if (verifier == null || verifier.isEmpty) {
+        if (!mounted) return;
+        setState(() => _connectingDiscogs = false);
+        return;
+      }
+      await api.completeAuthentication(
+        requestToken: auth.requestToken,
+        requestSecret: auth.requestSecret,
+        oauthVerifier: verifier,
+      );
       if (!mounted) return;
       await _completeOnboarding();
     } catch (_) {
