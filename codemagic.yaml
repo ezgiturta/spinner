@@ -28,7 +28,9 @@ workflows:
             --build-number=$PROJECT_BUILD_NUMBER \
             --dart-define=EBAY_CLIENT_ID=$EBAY_CLIENT_ID \
             --dart-define=EBAY_CLIENT_SECRET=$EBAY_CLIENT_SECRET \
-            --dart-define=REVERB_TOKEN=$REVERB_TOKEN
+            --dart-define=REVERB_TOKEN=$REVERB_TOKEN \
+            --dart-define=SPOTIFY_CLIENT_ID=$SPOTIFY_CLIENT_ID \
+            --dart-define=SPOTIFY_CLIENT_SECRET=$SPOTIFY_CLIENT_SECRET
       - name: Archive
         script: |
           cd $CM_BUILD_DIR/ios

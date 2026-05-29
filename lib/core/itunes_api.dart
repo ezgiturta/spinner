@@ -56,4 +56,69 @@ class ItunesApi {
       'genre': r['primaryGenreName'] ?? '',
     }).toList().cast<Map<String, dynamic>>();
   }
+
+  /// Best-effort album lookup → list of tracks with 30sec previewUrl.
+  /// Searches album by "artist title", then uses lookup with collectionId to pull tracks.
+  static Future<List<Map<String, dynamic>>> findAlbumTracks({
+    required String artist,
+    required String title,
+  }) async {
+    if (artist.trim().isEmpty && title.trim().isEmpty) return const [];
+    try {
+      final searchResp = await _dio.get(
+        'https://itunes.apple.com/search',
+        queryParameters: {
+          'term': '$artist $title',
+          'media': 'music',
+          'entity': 'album',
+          'limit': '5',
+        },
+      );
+      final searchData = _parseData(searchResp.data);
+      final albums = (searchData['results'] as List?) ?? const [];
+      if (albums.isEmpty) return const [];
+
+      Map<String, dynamic>? match;
+      final wantTitle = title.toLowerCase();
+      final wantArtist = artist.toLowerCase();
+      for (final a in albums) {
+        final aTitle = (a['collectionName'] ?? '').toString().toLowerCase();
+        final aArtist = (a['artistName'] ?? '').toString().toLowerCase();
+        if (aTitle.contains(wantTitle) && aArtist.contains(wantArtist)) {
+          match = a as Map<String, dynamic>;
+          break;
+        }
+      }
+      match ??= albums.first as Map<String, dynamic>;
+      final collectionId = match['collectionId'];
+      if (collectionId == null) return const [];
+
+      final lookupResp = await _dio.get(
+        'https://itunes.apple.com/lookup',
+        queryParameters: {
+          'id': '$collectionId',
+          'entity': 'song',
+        },
+      );
+      final lookupData = _parseData(lookupResp.data);
+      final results = (lookupData['results'] as List?) ?? const [];
+      final tracks = <Map<String, dynamic>>[];
+      for (final r in results) {
+        if (r is! Map) continue;
+        if (r['wrapperType'] != 'track') continue;
+        final preview = (r['previewUrl'] ?? '').toString();
+        if (preview.isEmpty) continue;
+        tracks.add({
+          'track_number': r['trackNumber'] ?? 0,
+          'track_name': r['trackName'] ?? '',
+          'preview_url': preview,
+          'duration_ms': r['trackTimeMillis'] ?? 0,
+        });
+      }
+      tracks.sort((a, b) => (a['track_number'] as int).compareTo(b['track_number'] as int));
+      return tracks;
+    } catch (_) {
+      return const [];
+    }
+  }
 }

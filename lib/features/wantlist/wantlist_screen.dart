@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../core/database.dart';
 import '../../core/itunes_api.dart';
+import '../../core/price_alert_service.dart';
 import '../../core/theme.dart';
 
 class WantlistScreen extends StatefulWidget {
@@ -28,6 +29,9 @@ class _WantlistScreenState extends State<WantlistScreen> {
     super.initState();
     _loadWantlist();
     _searchController.addListener(_onSearchChanged);
+    // Trigger a fresh price check whenever the user opens the wantlist —
+    // notification fires if any tracked item dropped below its alert price.
+    PriceAlertService.instance.checkOnce();
   }
 
   @override

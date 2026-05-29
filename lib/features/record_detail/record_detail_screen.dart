@@ -5,6 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -12,7 +13,9 @@ import '../../core/ai_access.dart';
 import '../../core/database.dart';
 import '../../core/ebay_api.dart';
 import '../../core/genre_likes.dart';
+import '../../core/itunes_api.dart';
 import '../../core/reverb_api.dart';
+import '../../core/spotify_api.dart';
 import '../../core/router.dart';
 import '../../core/theme.dart';
 import 'widgets/album_story_card.dart';
@@ -280,6 +283,10 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
           _buildValueCard(record),
           const SizedBox(height: 20),
           _CheapestCopiesCard(record: record),
+          const SizedBox(height: 20),
+          _PreviewTracksCard(record: record),
+          const SizedBox(height: 20),
+          _SpotifyRecsCard(record: record),
           const SizedBox(height: 20),
           _buildPriceChart(record),
           const SizedBox(height: 20),
@@ -1683,6 +1690,414 @@ class _CheapestLinkButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
           ),
           alignment: Alignment.centerLeft,
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Preview tracks (iTunes 30-second clips, no auth)
+// ---------------------------------------------------------------------------
+
+class _PreviewTracksCard extends StatefulWidget {
+  final Map<String, dynamic> record;
+  const _PreviewTracksCard({required this.record});
+
+  @override
+  State<_PreviewTracksCard> createState() => _PreviewTracksCardState();
+}
+
+class _PreviewTracksCardState extends State<_PreviewTracksCard> {
+  final AudioPlayer _player = AudioPlayer();
+  List<Map<String, dynamic>> _tracks = const [];
+  bool _loading = true;
+  int? _currentIndex;
+  bool _isPlaying = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTracks();
+    _player.playerStateStream.listen((state) {
+      if (!mounted) return;
+      final playing = state.playing && state.processingState != ProcessingState.completed;
+      if (playing != _isPlaying) {
+        setState(() => _isPlaying = playing);
+      }
+      if (state.processingState == ProcessingState.completed) {
+        setState(() {
+          _isPlaying = false;
+          _currentIndex = null;
+        });
+      }
+    });
+  }
+
+  Future<void> _loadTracks() async {
+    final artist = (widget.record['artist'] as String?) ?? '';
+    final title = (widget.record['title'] as String?) ?? '';
+    final tracks = await ItunesApi.findAlbumTracks(artist: artist, title: title);
+    if (!mounted) return;
+    setState(() {
+      _tracks = tracks;
+      _loading = false;
+    });
+  }
+
+  Future<void> _toggleTrack(int index) async {
+    final track = _tracks[index];
+    final url = (track['preview_url'] as String?) ?? '';
+    if (url.isEmpty) return;
+
+    if (_currentIndex == index && _isPlaying) {
+      await _player.pause();
+      return;
+    }
+    setState(() => _currentIndex = index);
+    try {
+      await _player.setUrl(url);
+      await _player.play();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _currentIndex = null;
+        _isPlaying = false;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _player.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return _shell(
+        child: Row(
+          children: [
+            const SizedBox(
+              height: 18,
+              width: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              'Finding preview tracks…',
+              style: SpinnerTheme.nunito(size: 14, color: SpinnerTheme.greyLight),
+            ),
+          ],
+        ),
+      );
+    }
+    if (_tracks.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final visible = _tracks.take(8).toList();
+    return _shell(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.play_circle_outline, color: SpinnerTheme.white, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'Preview tracks',
+                style: SpinnerTheme.nunito(
+                  size: 15,
+                  weight: FontWeight.w700,
+                  color: SpinnerTheme.white,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '30 sec · via Apple Music',
+                style: SpinnerTheme.nunito(size: 11, color: SpinnerTheme.greyLight),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          for (int i = 0; i < visible.length; i++)
+            _trackRow(i, visible[i]),
+        ],
+      ),
+    );
+  }
+
+  Widget _trackRow(int index, Map<String, dynamic> track) {
+    final isCurrent = _currentIndex == index;
+    final playing = isCurrent && _isPlaying;
+    final name = (track['track_name'] as String?) ?? '';
+    final trackNo = track['track_number'] as int? ?? 0;
+
+    return InkWell(
+      onTap: () => _toggleTrack(index),
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+        child: Row(
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: isCurrent ? SpinnerTheme.white : SpinnerTheme.bg,
+                shape: BoxShape.circle,
+                border: Border.all(color: SpinnerTheme.border),
+              ),
+              child: Icon(
+                playing ? Icons.pause : Icons.play_arrow,
+                size: 18,
+                color: isCurrent ? SpinnerTheme.bg : SpinnerTheme.white,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              trackNo > 0 ? '$trackNo.' : '·',
+              style: SpinnerTheme.nunito(size: 13, color: SpinnerTheme.greyLight),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: SpinnerTheme.nunito(
+                  size: 14,
+                  weight: isCurrent ? FontWeight.w700 : FontWeight.w500,
+                  color: SpinnerTheme.white,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _shell({required Widget child}) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: SpinnerTheme.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: SpinnerTheme.border),
+      ),
+      child: child,
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Spotify "you might also like" (artist seed → recommendations)
+// ---------------------------------------------------------------------------
+
+class _SpotifyRecsCard extends StatefulWidget {
+  final Map<String, dynamic> record;
+  const _SpotifyRecsCard({required this.record});
+
+  @override
+  State<_SpotifyRecsCard> createState() => _SpotifyRecsCardState();
+}
+
+class _SpotifyRecsCardState extends State<_SpotifyRecsCard> {
+  List<SpotifyRecommendation> _recs = const [];
+  bool _loading = true;
+  final AudioPlayer _player = AudioPlayer();
+  String? _playingId;
+  bool _isPlaying = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+    _player.playerStateStream.listen((state) {
+      if (!mounted) return;
+      final playing = state.playing && state.processingState != ProcessingState.completed;
+      if (playing != _isPlaying) {
+        setState(() => _isPlaying = playing);
+      }
+      if (state.processingState == ProcessingState.completed) {
+        setState(() {
+          _isPlaying = false;
+          _playingId = null;
+        });
+      }
+    });
+  }
+
+  Future<void> _load() async {
+    if (!SpotifyApi.isConfigured) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      return;
+    }
+    final api = SpotifyApi();
+    final artist = (widget.record['artist'] as String?) ?? '';
+    final found = await api.findArtist(artist);
+    final artistId = found?['id'] as String?;
+    if (artistId == null) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      return;
+    }
+    final recs = await api.recommendationsForArtist(artistId);
+    if (!mounted) return;
+    setState(() {
+      _recs = recs;
+      _loading = false;
+    });
+  }
+
+  Future<void> _toggle(SpotifyRecommendation rec) async {
+    if (rec.previewUrl.isEmpty) {
+      final url = rec.spotifyUrl;
+      if (url.isNotEmpty) {
+        await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      }
+      return;
+    }
+    if (_playingId == rec.id && _isPlaying) {
+      await _player.pause();
+      return;
+    }
+    setState(() => _playingId = rec.id);
+    try {
+      await _player.setUrl(rec.previewUrl);
+      await _player.play();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _playingId = null;
+        _isPlaying = false;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _player.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) return const SizedBox.shrink();
+    if (_recs.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: SpinnerTheme.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: SpinnerTheme.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.recommend, color: SpinnerTheme.white, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'You might also like',
+                style: SpinnerTheme.nunito(
+                  size: 15,
+                  weight: FontWeight.w700,
+                  color: SpinnerTheme.white,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                'via Spotify',
+                style: SpinnerTheme.nunito(size: 11, color: SpinnerTheme.greyLight),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 168,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: _recs.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              itemBuilder: (_, i) => _recTile(_recs[i]),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _recTile(SpotifyRecommendation rec) {
+    final isCurrent = _playingId == rec.id;
+    final playing = isCurrent && _isPlaying;
+    return SizedBox(
+      width: 120,
+      child: GestureDetector(
+        onTap: () => _toggle(rec),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: rec.coverUrl.isNotEmpty
+                      ? CachedNetworkImage(
+                          imageUrl: rec.coverUrl,
+                          width: 120,
+                          height: 120,
+                          fit: BoxFit.cover,
+                        )
+                      : Container(
+                          width: 120,
+                          height: 120,
+                          color: SpinnerTheme.bg,
+                        ),
+                ),
+                Positioned.fill(
+                  child: Center(
+                    child: Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        playing ? Icons.pause : Icons.play_arrow,
+                        color: Colors.white,
+                        size: 22,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              rec.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: SpinnerTheme.nunito(
+                size: 12,
+                weight: FontWeight.w700,
+                color: SpinnerTheme.white,
+              ),
+            ),
+            Text(
+              rec.artist,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: SpinnerTheme.nunito(size: 11, color: SpinnerTheme.greyLight),
+            ),
+          ],
         ),
       ),
     );

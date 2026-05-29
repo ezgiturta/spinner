@@ -5,6 +5,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'core/price_alert_service.dart';
 import 'core/router.dart';
 import 'core/sdk_init.dart';
 import 'core/theme.dart';
@@ -34,6 +35,10 @@ Future<void> main() async {
   // what Apple reviewers expect to see on a fresh install.
   SchedulerBinding.instance.addPostFrameCallback((_) {
     unawaited(SdkInit.init());
+    // Wantlist price-drop check runs after first frame so it doesn't block
+    // startup. Discogs auth gate is inside the service, so this no-ops for
+    // signed-out users.
+    unawaited(PriceAlertService.instance.checkOnce());
   });
 }
 
