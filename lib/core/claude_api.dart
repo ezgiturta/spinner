@@ -73,6 +73,18 @@ class ClaudeApi {
   }
 
   // ---------------------------------------------------------------------------
+  // Cover OCR Parser — turn noisy back/front cover text into artist + title
+  // ---------------------------------------------------------------------------
+
+  Future<CoverParse> parseCover(String ocrText) async {
+    final res = await _dio.post(
+      '$_baseUrl/parse-cover',
+      data: jsonEncode({'text': ocrText}),
+    );
+    return CoverParse.fromJson(_asMap(res.data));
+  }
+
+  // ---------------------------------------------------------------------------
   // Mood Picker
   // ---------------------------------------------------------------------------
 
@@ -255,6 +267,33 @@ class RarePressing {
         if (marker != null) 'marker': marker,
         if (note != null) 'note': note,
       };
+}
+
+class CoverParse {
+  final String? artist;
+  final String? title;
+  final String? query;
+
+  const CoverParse({this.artist, this.title, this.query});
+
+  factory CoverParse.fromJson(Map<String, dynamic> j) => CoverParse(
+        artist: (j['artist'] as String?)?.trim().isEmpty == true
+            ? null
+            : (j['artist'] as String?)?.trim(),
+        title: (j['title'] as String?)?.trim().isEmpty == true
+            ? null
+            : (j['title'] as String?)?.trim(),
+        query: (j['query'] as String?)?.trim().isEmpty == true
+            ? null
+            : (j['query'] as String?)?.trim(),
+      );
+
+  String? get bestQuery {
+    if (query != null && query!.isNotEmpty) return query;
+    final parts = [artist, title].whereType<String>().where((s) => s.isNotEmpty);
+    if (parts.isEmpty) return null;
+    return parts.join(' ');
+  }
 }
 
 class MoodPick {

@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/claude_api.dart';
 import '../../core/database.dart';
 import '../../core/discogs_api.dart';
 import '../../core/itunes_api.dart';
@@ -142,9 +143,16 @@ class _ScanScreenState extends State<ScanScreen>
   }
 
   // ---------------------------------------------------------------------------
-  // OCR fallback — when barcode fails, the user can snap the back cover and
-  // the app will read the artist + title from the text and search by query.
-  // Uses Google ML Kit text recognition (already in pubspec).
+  // OCR fallback — when barcode fails, the user snaps the FRONT cover and we
+  // pull artist + title from it. We prefer the FRONT cover because artist and
+  // title are typically the largest text on it; back covers are dominated by
+  // tracklists and credits which are useless as a Discogs query.
+  //
+  // Strategy:
+  //   1. ML Kit OCR with bounding boxes.
+  //   2. Rank text lines by box height (font size), not by character count.
+  //   3. Send the top lines + full text to Claude proxy for smart parsing.
+  //   4. Fall back to "top lines by height" as the query if Claude is down.
   // ---------------------------------------------------------------------------
 
   Future<void> _runOcrFallback() async {
@@ -164,27 +172,55 @@ class _ScanScreenState extends State<ScanScreen>
     try {
       final input = InputImage.fromFilePath(photo.path);
       final result = await recognizer.processImage(input);
-      // Heuristic: take the two longest distinct lines — usually the artist
-      // name + the album title dominate the back-cover text. Strip noise.
-      final lines = <String>[
-        for (final block in result.blocks)
-          for (final line in block.lines)
-            line.text.trim(),
-      ]
-          .where((s) => s.length >= 3 && s.length <= 80)
-          .where((s) => !RegExp(r'^[\d\s\W]+$').hasMatch(s))
-          .toList()
-        ..sort((a, b) => b.length.compareTo(a.length));
-      final candidates = lines.take(2).join(' ');
-      if (candidates.isEmpty) {
+
+      // Collect (text, fontHeight) for every line, ranked by height so the
+      // biggest text on the cover floats to the top.
+      final ranked = <_OcrLine>[];
+      final allText = StringBuffer();
+      for (final block in result.blocks) {
+        for (final line in block.lines) {
+          final text = line.text.trim();
+          if (text.isEmpty) continue;
+          allText.writeln(text);
+          if (text.length < 2 || text.length > 80) continue;
+          if (RegExp(r'^[\d\s\W]+$').hasMatch(text)) continue;
+          ranked.add(_OcrLine(text, line.boundingBox.height));
+        }
+      }
+      ranked.sort((a, b) => b.height.compareTo(a.height));
+
+      if (allText.isEmpty) {
         if (!mounted) return;
         setState(() {
           _isSearching = false;
-          _errorMessage = "Couldn't read any text. Try cropping closer to the artist + title.";
+          _errorMessage =
+              "Couldn't read any text. Try the FRONT cover, well-lit and in focus.";
         });
         return;
       }
-      await _searchDiscogs(query: candidates);
+
+      // Ask Claude to extract artist + title from the noisy OCR text. Fall
+      // back to "top-3 biggest lines" if the proxy fails.
+      String? query;
+      try {
+        final parsed = await ClaudeApi.instance.parseCover(allText.toString());
+        query = parsed.bestQuery;
+      } catch (_) {
+        // Proxy down — fall through to local heuristic.
+      }
+      query ??= ranked.take(3).map((l) => l.text).join(' ');
+
+      if (query.trim().isEmpty) {
+        if (!mounted) return;
+        setState(() {
+          _isSearching = false;
+          _errorMessage =
+              "Couldn't identify the album from the cover. Try Manual Search.";
+        });
+        return;
+      }
+
+      await _searchDiscogs(query: query);
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -262,11 +298,11 @@ class _ScanScreenState extends State<ScanScreen>
       if (results.isEmpty) {
         // Aggressive UX: when a barcode read returned nothing from Discogs,
         // don't make the user tap another button — auto-launch the OCR
-        // fallback so they just snap the back cover once and we keep going.
+        // fallback so they just snap the front cover once and we keep going.
         if (barcode != null && _tabController.index == 0) {
           setState(() {
             _isSearching = false;
-            _errorMessage = 'Barcode not in Discogs. Snap the back cover and I\'ll read the text.';
+            _errorMessage = 'Barcode not in Discogs. Snap the FRONT cover and I\'ll read the text.';
           });
           await _runOcrFallback();
           return;
@@ -960,3 +996,10 @@ class _ScanScreenState extends State<ScanScreen>
     );
   }
 }
+
+class _OcrLine {
+  final String text;
+  final double height;
+  const _OcrLine(this.text, this.height);
+}
+
