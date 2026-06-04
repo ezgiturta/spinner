@@ -73,13 +73,17 @@ class ClaudeApi {
   }
 
   // ---------------------------------------------------------------------------
-  // Cover OCR Parser — turn noisy back/front cover text into artist + title
+  // Cover Identifier — send a photo of the sleeve, get back artist + title
   // ---------------------------------------------------------------------------
 
-  Future<CoverParse> parseCover(String ocrText) async {
+  Future<CoverParse> identifyCover(File coverImage) async {
+    final bytes = await coverImage.readAsBytes();
     final res = await _dio.post(
-      '$_baseUrl/parse-cover',
-      data: jsonEncode({'text': ocrText}),
+      '$_baseUrl/identify-cover',
+      data: jsonEncode({
+        'imageBase64': base64Encode(bytes),
+        'mediaType': _mediaTypeForPath(coverImage.path),
+      }),
     );
     return CoverParse.fromJson(_asMap(res.data));
   }

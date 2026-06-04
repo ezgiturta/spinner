@@ -21,6 +21,12 @@ class SdkInit {
 
   static bool _initialized = false;
 
+  // Resolves once `Purchases.configure()` has returned (or failed). Paywall
+  // screens await this before calling `getOfferings()` to avoid a race where
+  // they open before SDK init has happened and get an empty offering.
+  static final Completer<void> _revenueCatReady = Completer<void>();
+  static Future<void> get revenueCatReady => _revenueCatReady.future;
+
   static Future<void> init() async {
     if (_initialized) return;
     _initialized = true;
@@ -59,6 +65,8 @@ class SdkInit {
       } catch (_) {}
     } catch (e) {
       log('RevenueCat configure failed: $e', name: 'SdkInit');
+    } finally {
+      if (!_revenueCatReady.isCompleted) _revenueCatReady.complete();
     }
 
     // 4. Scate SDK — must be initialized AFTER Adjust per Scate docs.

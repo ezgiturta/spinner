@@ -1,8 +1,11 @@
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/sdk_init.dart';
 import '../../core/theme.dart';
 
 class PaywallScreen extends StatefulWidget {
@@ -28,31 +31,64 @@ class _PaywallScreenState extends State<PaywallScreen> {
   }
 
   Future<void> _loadOfferings() async {
-    try {
-      final offerings = await Purchases.getOfferings();
-      final current = offerings.current;
-      if (current == null) return;
-      Package? weekly;
-      Package? yearly;
-      for (final pkg in current.availablePackages) {
-        switch (pkg.packageType) {
-          case PackageType.weekly:
-            weekly = pkg;
-          case PackageType.annual:
-            yearly = pkg;
-          default:
-            break;
+    final t0 = DateTime.now();
+    log('PAYWALL waiting for SdkInit.revenueCatReady', name: 'Paywall');
+    await SdkInit.revenueCatReady;
+    log('PAYWALL revenueCatReady resolved in '
+        '${DateTime.now().difference(t0).inMilliseconds}ms',
+        name: 'Paywall');
+
+    for (var attempt = 0; attempt < 4; attempt++) {
+      try {
+        final offerings = await Purchases.getOfferings();
+        final current = offerings.current;
+        final allKeys = offerings.all.keys.toList();
+        log(
+          'PAYWALL attempt ${attempt + 1}: '
+          'current=${current?.identifier} '
+          'all=$allKeys '
+          'packages=${current?.availablePackages.map((p) => '${p.identifier}(${p.packageType}/${p.storeProduct.identifier})').toList()}',
+          name: 'Paywall',
+        );
+        if (current != null) {
+          Package? weekly;
+          Package? yearly;
+          for (final pkg in current.availablePackages) {
+            switch (pkg.packageType) {
+              case PackageType.weekly:
+                weekly = pkg;
+              case PackageType.annual:
+                yearly = pkg;
+              default:
+                break;
+            }
+          }
+          if (weekly != null || yearly != null) {
+            log(
+              'PAYWALL packages resolved: '
+              'weekly=${weekly?.storeProduct.identifier} '
+              'yearly=${yearly?.storeProduct.identifier}',
+              name: 'Paywall',
+            );
+            if (!mounted) return;
+            setState(() {
+              _weeklyPkg = weekly;
+              _yearlyPkg = yearly;
+              if (_yearlyPkg == null && _weeklyPkg != null) {
+                _selected = _Plan.weekly;
+              }
+            });
+            return;
+          }
         }
+      } catch (e, st) {
+        log('PAYWALL attempt ${attempt + 1} threw: $e',
+            name: 'Paywall', error: e, stackTrace: st);
       }
-      if (!mounted) return;
-      setState(() {
-        _weeklyPkg = weekly;
-        _yearlyPkg = yearly;
-        if (_yearlyPkg == null && _weeklyPkg != null) {
-          _selected = _Plan.weekly;
-        }
-      });
-    } catch (_) {}
+      await Future<void>.delayed(Duration(milliseconds: 400 * (attempt + 1)));
+    }
+    log('PAYWALL FAILED after 4 attempts — packages stayed null',
+        name: 'Paywall');
   }
 
   String _priceFor(_Plan plan) {

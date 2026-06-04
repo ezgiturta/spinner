@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 import 'package:go_router/go_router.dart';
@@ -121,32 +123,50 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     const callbackUrl = '$callbackScheme://discogs-callback';
     final api = DiscogsApi();
     try {
+      log('DISCOGS-OAUTH step 1: requesting authorization URL',
+          name: 'DiscogsOAuth');
       final auth = await api.getAuthorizationUrl(callbackUrl);
+      log('DISCOGS-OAUTH step 1 OK: authorize URL fetched, opening webview',
+          name: 'DiscogsOAuth');
+
       final resultUri = await FlutterWebAuth2.authenticate(
         url: auth.authorizeUrl,
         callbackUrlScheme: callbackScheme,
       );
+      log('DISCOGS-OAUTH step 2: webview returned with $resultUri',
+          name: 'DiscogsOAuth');
+
       final verifier = Uri.parse(resultUri).queryParameters['oauth_verifier'];
       if (verifier == null || verifier.isEmpty) {
+        log('DISCOGS-OAUTH step 2: no oauth_verifier in callback — user cancelled?',
+            name: 'DiscogsOAuth');
         if (!mounted) return;
         setState(() => _connectingDiscogs = false);
         return;
       }
+
+      log('DISCOGS-OAUTH step 3: exchanging verifier for access token',
+          name: 'DiscogsOAuth');
       await api.completeAuthentication(
         requestToken: auth.requestToken,
         requestSecret: auth.requestSecret,
         oauthVerifier: verifier,
       );
+      log('DISCOGS-OAUTH step 3 OK: authenticated as ${api.username}',
+          name: 'DiscogsOAuth');
+
       if (!mounted) return;
       await _completeOnboarding();
-    } catch (_) {
+    } catch (e, st) {
+      log('DISCOGS-OAUTH FAILED: $e',
+          name: 'DiscogsOAuth', error: e, stackTrace: st);
       if (!mounted) return;
       setState(() => _connectingDiscogs = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           backgroundColor: SpinnerTheme.surface,
           content: Text(
-            'Could not connect to Discogs. Please try again.',
+            'Could not connect to Discogs: $e',
             style: SpinnerTheme.nunito(
               size: 14,
               weight: FontWeight.w500,

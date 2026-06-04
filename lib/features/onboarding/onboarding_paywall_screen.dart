@@ -8,6 +8,7 @@ import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:scatesdk_flutter/scatesdk_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/sdk_init.dart';
 import '../../core/theme.dart';
 
 class OnboardingPaywallScreen extends StatefulWidget {
@@ -38,33 +39,65 @@ class _OnboardingPaywallScreenState extends State<OnboardingPaywallScreen> {
   }
 
   Future<void> _loadOfferings() async {
-    try {
-      final offerings = await Purchases.getOfferings();
-      final current = offerings.current;
-      if (current == null) return;
-      Package? weekly;
-      Package? yearly;
-      for (final pkg in current.availablePackages) {
-        switch (pkg.packageType) {
-          case PackageType.weekly:
-            weekly = pkg;
-          case PackageType.annual:
-            yearly = pkg;
-          default:
-            break;
+    final t0 = DateTime.now();
+    log('ONB-PAYWALL waiting for SdkInit.revenueCatReady',
+        name: 'OnboardingPaywall');
+    await SdkInit.revenueCatReady;
+    log('ONB-PAYWALL revenueCatReady resolved in '
+        '${DateTime.now().difference(t0).inMilliseconds}ms',
+        name: 'OnboardingPaywall');
+
+    for (var attempt = 0; attempt < 4; attempt++) {
+      try {
+        final offerings = await Purchases.getOfferings();
+        final current = offerings.current;
+        final allKeys = offerings.all.keys.toList();
+        log(
+          'ONB-PAYWALL attempt ${attempt + 1}: '
+          'current=${current?.identifier} '
+          'all=$allKeys '
+          'packages=${current?.availablePackages.map((p) => '${p.identifier}(${p.packageType}/${p.storeProduct.identifier})').toList()}',
+          name: 'OnboardingPaywall',
+        );
+        if (current != null) {
+          Package? weekly;
+          Package? yearly;
+          for (final pkg in current.availablePackages) {
+            switch (pkg.packageType) {
+              case PackageType.weekly:
+                weekly = pkg;
+              case PackageType.annual:
+                yearly = pkg;
+              default:
+                break;
+            }
+          }
+          if (weekly != null || yearly != null) {
+            log(
+              'ONB-PAYWALL packages resolved: '
+              'weekly=${weekly?.storeProduct.identifier} '
+              'yearly=${yearly?.storeProduct.identifier}',
+              name: 'OnboardingPaywall',
+            );
+            if (!mounted) return;
+            setState(() {
+              _weeklyPkg = weekly;
+              _yearlyPkg = yearly;
+              if (_yearlyPkg == null && _weeklyPkg != null) {
+                _selected = _Plan.weekly;
+              }
+            });
+            return;
+          }
         }
+      } catch (e, st) {
+        log('ONB-PAYWALL attempt ${attempt + 1} threw: $e',
+            name: 'OnboardingPaywall', error: e, stackTrace: st);
       }
-      if (!mounted) return;
-      setState(() {
-        _weeklyPkg = weekly;
-        _yearlyPkg = yearly;
-        if (_yearlyPkg == null && _weeklyPkg != null) {
-          _selected = _Plan.weekly;
-        }
-      });
-    } catch (e) {
-      log('Offerings load failed: $e', name: 'OnboardingPaywall');
+      await Future<void>.delayed(Duration(milliseconds: 400 * (attempt + 1)));
     }
+    log('ONB-PAYWALL FAILED after 4 attempts — packages stayed null',
+        name: 'OnboardingPaywall');
   }
 
   Future<void> _exit() async {

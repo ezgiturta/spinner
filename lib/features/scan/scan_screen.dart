@@ -1,9 +1,10 @@
 import 'dart:async';
 
+import 'dart:io';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:uuid/uuid.dart';
@@ -143,16 +144,11 @@ class _ScanScreenState extends State<ScanScreen>
   }
 
   // ---------------------------------------------------------------------------
-  // OCR fallback — when barcode fails, the user snaps the FRONT cover and we
-  // pull artist + title from it. We prefer the FRONT cover because artist and
-  // title are typically the largest text on it; back covers are dominated by
-  // tracklists and credits which are useless as a Discogs query.
-  //
-  // Strategy:
-  //   1. ML Kit OCR with bounding boxes.
-  //   2. Rank text lines by box height (font size), not by character count.
-  //   3. Send the top lines + full text to Claude proxy for smart parsing.
-  //   4. Fall back to "top lines by height" as the query if Claude is down.
+  // Cover-photo fallback — when barcode fails (or isn't there), the user snaps
+  // the FRONT cover and we send the photo directly to Claude vision, which
+  // identifies the album from the artwork + any visible text. No OCR step:
+  // stylized fonts, logos, blurry shots, angled shots all worked badly with
+  // OCR; the multimodal model handles them in one round-trip.
   // ---------------------------------------------------------------------------
 
   Future<void> _runOcrFallback() async {
@@ -160,6 +156,7 @@ class _ScanScreenState extends State<ScanScreen>
     final XFile? photo = await picker.pickImage(
       source: ImageSource.camera,
       preferredCameraDevice: CameraDevice.rear,
+      imageQuality: 85,
     );
     if (photo == null) return;
 
@@ -168,54 +165,17 @@ class _ScanScreenState extends State<ScanScreen>
       _errorMessage = null;
     });
 
-    final recognizer = TextRecognizer(script: TextRecognitionScript.latin);
     try {
-      final input = InputImage.fromFilePath(photo.path);
-      final result = await recognizer.processImage(input);
+      final parsed =
+          await ClaudeApi.instance.identifyCover(File(photo.path));
+      final query = parsed.bestQuery;
 
-      // Collect (text, fontHeight) for every line, ranked by height so the
-      // biggest text on the cover floats to the top.
-      final ranked = <_OcrLine>[];
-      final allText = StringBuffer();
-      for (final block in result.blocks) {
-        for (final line in block.lines) {
-          final text = line.text.trim();
-          if (text.isEmpty) continue;
-          allText.writeln(text);
-          if (text.length < 2 || text.length > 80) continue;
-          if (RegExp(r'^[\d\s\W]+$').hasMatch(text)) continue;
-          ranked.add(_OcrLine(text, line.boundingBox.height));
-        }
-      }
-      ranked.sort((a, b) => b.height.compareTo(a.height));
-
-      if (allText.isEmpty) {
+      if (query == null || query.trim().isEmpty) {
         if (!mounted) return;
         setState(() {
           _isSearching = false;
           _errorMessage =
-              "Couldn't read any text. Try the FRONT cover, well-lit and in focus.";
-        });
-        return;
-      }
-
-      // Ask Claude to extract artist + title from the noisy OCR text. Fall
-      // back to "top-3 biggest lines" if the proxy fails.
-      String? query;
-      try {
-        final parsed = await ClaudeApi.instance.parseCover(allText.toString());
-        query = parsed.bestQuery;
-      } catch (_) {
-        // Proxy down — fall through to local heuristic.
-      }
-      query ??= ranked.take(3).map((l) => l.text).join(' ');
-
-      if (query.trim().isEmpty) {
-        if (!mounted) return;
-        setState(() {
-          _isSearching = false;
-          _errorMessage =
-              "Couldn't identify the album from the cover. Try Manual Search.";
+              "Couldn't identify this cover. Try a clearer front-cover photo or use Manual Search.";
         });
         return;
       }
@@ -225,10 +185,8 @@ class _ScanScreenState extends State<ScanScreen>
       if (!mounted) return;
       setState(() {
         _isSearching = false;
-        _errorMessage = 'Text recognition failed: $e';
+        _errorMessage = 'Cover recognition failed: $e';
       });
-    } finally {
-      await recognizer.close();
     }
   }
 
@@ -302,7 +260,7 @@ class _ScanScreenState extends State<ScanScreen>
         if (barcode != null && _tabController.index == 0) {
           setState(() {
             _isSearching = false;
-            _errorMessage = 'Barcode not in Discogs. Snap the FRONT cover and I\'ll read the text.';
+            _errorMessage = 'Barcode not in Discogs. Snap the FRONT cover and I\'ll identify it.';
           });
           await _runOcrFallback();
           return;
@@ -509,8 +467,8 @@ class _ScanScreenState extends State<ScanScreen>
               width: double.infinity,
               child: ElevatedButton.icon(
                 onPressed: _isSearching ? null : _runOcrFallback,
-                icon: const Icon(Icons.text_fields, size: 18),
-                label: const Text('Read text from cover'),
+                icon: const Icon(Icons.photo_camera, size: 18),
+                label: const Text('Snap cover photo'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: SpinnerTheme.accent,
                   foregroundColor: SpinnerTheme.white,
@@ -997,9 +955,4 @@ class _ScanScreenState extends State<ScanScreen>
   }
 }
 
-class _OcrLine {
-  final String text;
-  final double height;
-  const _OcrLine(this.text, this.height);
-}
 
