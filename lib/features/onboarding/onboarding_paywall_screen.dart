@@ -3,7 +3,6 @@ import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:scatesdk_flutter/scatesdk_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -111,7 +110,7 @@ class _OnboardingPaywallScreenState extends State<OnboardingPaywallScreen> {
     context.go('/home');
   }
 
-  Future<void> _startTrial() async {
+  Future<void> _subscribe() async {
     final pkg = _selected == _Plan.weekly ? _weeklyPkg : _yearlyPkg;
     if (pkg == null) {
       setState(() => _error = 'Plan not available. Please try again later.');
@@ -176,11 +175,6 @@ class _OnboardingPaywallScreenState extends State<OnboardingPaywallScreen> {
     }
   }
 
-  String get _trialEndDate {
-    final end = DateTime.now().add(const Duration(days: 3));
-    return DateFormat('MMMM d').format(end);
-  }
-
   String _priceFor(_Plan plan) {
     final pkg = plan == _Plan.weekly ? _weeklyPkg : _yearlyPkg;
     if (pkg != null) return pkg.storeProduct.priceString;
@@ -207,7 +201,7 @@ class _OnboardingPaywallScreenState extends State<OnboardingPaywallScreen> {
                 children: [
                   const SizedBox(height: 16),
                   Text(
-                    'Try Spinner Free',
+                    'Unlock Spinner Pro',
                     textAlign: TextAlign.center,
                     style: SpinnerTheme.nunito(
                       size: 28,
@@ -228,7 +222,7 @@ class _OnboardingPaywallScreenState extends State<OnboardingPaywallScreen> {
                   ),
                   const SizedBox(height: 36),
                   Text(
-                    'How your free trial works',
+                    'Everything in Spinner Pro',
                     style: SpinnerTheme.nunito(
                       size: 18,
                       weight: FontWeight.w800,
@@ -237,23 +231,23 @@ class _OnboardingPaywallScreenState extends State<OnboardingPaywallScreen> {
                   ),
                   const SizedBox(height: 24),
                   _TimelineItem(
-                    icon: Icons.lock_open_rounded,
+                    icon: Icons.auto_awesome_rounded,
                     isFirst: true,
-                    title: 'Today: Get Instant Access',
-                    subtitle: 'Start your full access of Spinner Pro',
+                    title: 'Unlimited AI condition grading',
+                    subtitle: 'Grade any record\'s condition — no caps',
                   ),
                   _TimelineItem(
-                    icon: Icons.notifications_rounded,
-                    title: 'Day 2: Trial Reminder',
+                    icon: Icons.auto_stories_rounded,
+                    title: 'Mood picks & album stories',
                     subtitle:
-                        'Get a reminder about when your trial will end',
+                        'Unlimited AI mood matches and album deep-dives',
                   ),
                   _TimelineItem(
-                    icon: Icons.event_available_rounded,
+                    icon: Icons.sell_rounded,
                     isLast: true,
-                    title: 'Day 3: Trial Ends',
+                    title: 'Live market pricing',
                     subtitle:
-                        'Your subscription will start on $_trialEndDate',
+                        'eBay, Reverb & Discogs values on every record',
                   ),
                   const SizedBox(height: 24),
                   _PlanCard(
@@ -268,7 +262,7 @@ class _OnboardingPaywallScreenState extends State<OnboardingPaywallScreen> {
                     selected: _selected == _Plan.yearly,
                     price: _priceFor(_Plan.yearly),
                     period: '/year',
-                    subtitle: '3-day FREE TRIAL · Just \$0.11/day',
+                    subtitle: 'Best value · just \$0.11/day',
                     onTap: () => setState(() => _selected = _Plan.yearly),
                   ),
                 ],
@@ -343,7 +337,7 @@ class _OnboardingPaywallScreenState extends State<OnboardingPaywallScreen> {
               color: SpinnerTheme.accent,
               borderRadius: BorderRadius.circular(14),
               child: InkWell(
-                onTap: _loading ? null : _startTrial,
+                onTap: _loading ? null : _subscribe,
                 borderRadius: BorderRadius.circular(14),
                 child: Center(
                   child: _loading
@@ -356,7 +350,7 @@ class _OnboardingPaywallScreenState extends State<OnboardingPaywallScreen> {
                           ),
                         )
                       : Text(
-                          'Start my 3-day trial',
+                          'Subscribe',
                           style: SpinnerTheme.nunito(
                             size: 17,
                             weight: FontWeight.w800,
