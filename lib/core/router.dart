@@ -12,6 +12,7 @@ import '../features/paywall/paywall_screen.dart';
 import '../features/record_detail/record_detail_screen.dart';
 import '../features/settings/settings_screen.dart';
 import '../features/explore/genre_explorer_screen.dart';
+import 'subscription_gate.dart';
 import 'theme.dart';
 
 abstract class AppRoutes {
@@ -175,12 +176,16 @@ class _BottomNavShell extends StatelessWidget {
     );
   }
 
-  void _onTabTap(BuildContext context, int index) {
+  Future<void> _onTabTap(BuildContext context, int index) async {
     switch (index) {
       case 0:
         context.go(AppRoutes.home);
       case 1:
-        context.go(AppRoutes.scan);
+        // Scan is a Pro-only action — gate before navigating. Non-subscribers
+        // get the paywall instead of the scanner, every tap.
+        if (await SubscriptionGate.requirePro(context)) {
+          if (context.mounted) context.go(AppRoutes.scan);
+        }
       case 2:
         context.go(AppRoutes.explore);
       case 3:

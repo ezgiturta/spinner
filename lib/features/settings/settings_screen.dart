@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/database.dart';
 import '../../core/discogs_api.dart';
 import '../../core/router.dart';
+import '../../core/subscription_gate.dart';
 import '../../core/theme.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -43,6 +44,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _connectDiscogs() async {
+    // Importing your collection from Discogs is a Pro feature.
+    if (!await SubscriptionGate.requirePro(context)) return;
     // OAuth 1.0a — three steps:
     //   1) ask Discogs for a request token, get an authorize URL back
     //   2) open it in an in-app browser; Discogs redirects to our

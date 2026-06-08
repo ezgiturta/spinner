@@ -1,15 +1,14 @@
-import 'dart:developer';
-
 import 'package:flutter/material.dart';
-import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 import 'package:go_router/go_router.dart';
 import 'package:scatesdk_flutter/scatesdk_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:url_launcher/url_launcher.dart';
 
-import '../../core/discogs_api.dart';
 import '../../core/theme.dart';
 
+/// Onboarding = a short feature showcase, then the paywall. No name/size
+/// questions — the goal is to show what Spinner does and move into the
+/// paywall as one continuous flow. Every step shares the SAME pinned bottom
+/// button position so onboarding + paywall feel like a single funnel.
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
 
@@ -21,17 +20,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final _pageController = PageController();
   int _currentPage = 0;
 
-  // Screen 1: Welcome + Name
-  final _nameController = TextEditingController();
+  static const _pageCount = 4;
 
-  // Screen 2: Genres
+  // Final step: genre selection (drives Explore recommendations).
   final Set<String> _selectedGenres = {};
-
-  // Screen 3: Collection size
-  String? _collectionSize;
-
-  // Screen 4: Discogs
-  bool _connectingDiscogs = false;
 
   static const _genres = [
     // Rock
@@ -56,13 +48,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     'Soundtracks', 'Experimental', 'Noise', 'Shoegaze', 'New Wave',
   ];
 
-  static const _collectionSizes = [
-    'Just starting',
-    '1-50',
-    '50-200',
-    '200+',
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -74,22 +59,29 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   void dispose() {
     _pageController.dispose();
-    _nameController.dispose();
     super.dispose();
   }
 
-  void _nextPage() {
+  /// Whether the pinned button is enabled on the current page. The showcase
+  /// slides are always advanceable; the genre step needs at least one pick.
+  bool get _canAdvance {
+    if (_currentPage == _pageCount - 1) return _selectedGenres.isNotEmpty;
+    return true;
+  }
+
+  void _onPrimary() {
     FocusScope.of(context).unfocus();
-    if (_currentPage < 3) {
+    if (_currentPage < _pageCount - 1) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 350),
         curve: Curves.easeInOut,
       );
+    } else {
+      _completeOnboarding();
     }
   }
 
   void _previousPage() {
-    FocusScope.of(context).unfocus();
     if (_currentPage > 0) {
       _pageController.previousPage(
         duration: const Duration(milliseconds: 350),
@@ -102,87 +94,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('onboarding_complete', true);
-      await prefs.setString('user_name', _nameController.text.trim());
       await prefs.setStringList('genres', _selectedGenres.toList());
-      if (_collectionSize != null) {
-        await prefs.setString('collection_size', _collectionSize!);
-      }
     } catch (_) {
-      // Never block app startup -- proceed even if prefs fail.
+      // Never block app startup — proceed even if prefs fail.
     }
-
-    // OnboardingFinish fires after paywall is dismissed (the paywall is the
-    // final step of onboarding per Scate lifecycle ordering).
+    // The paywall is the final step of the onboarding funnel.
     if (!mounted) return;
     context.go('/onboarding-paywall');
-  }
-
-  Future<void> _connectDiscogs() async {
-    setState(() => _connectingDiscogs = true);
-    const callbackScheme = 'spinner';
-    const callbackUrl = '$callbackScheme://discogs-callback';
-    final api = DiscogsApi();
-    try {
-      log('DISCOGS-OAUTH step 1: requesting authorization URL',
-          name: 'DiscogsOAuth');
-      final auth = await api.getAuthorizationUrl(callbackUrl);
-      log('DISCOGS-OAUTH step 1 OK: authorize URL fetched, opening webview',
-          name: 'DiscogsOAuth');
-
-      final resultUri = await FlutterWebAuth2.authenticate(
-        url: auth.authorizeUrl,
-        callbackUrlScheme: callbackScheme,
-      );
-      log('DISCOGS-OAUTH step 2: webview returned with $resultUri',
-          name: 'DiscogsOAuth');
-
-      final verifier = Uri.parse(resultUri).queryParameters['oauth_verifier'];
-      if (verifier == null || verifier.isEmpty) {
-        log('DISCOGS-OAUTH step 2: no oauth_verifier in callback — user cancelled?',
-            name: 'DiscogsOAuth');
-        if (!mounted) return;
-        setState(() => _connectingDiscogs = false);
-        return;
-      }
-
-      log('DISCOGS-OAUTH step 3: exchanging verifier for access token',
-          name: 'DiscogsOAuth');
-      await api.completeAuthentication(
-        requestToken: auth.requestToken,
-        requestSecret: auth.requestSecret,
-        oauthVerifier: verifier,
-      );
-      log('DISCOGS-OAUTH step 3 OK: authenticated as ${api.username}',
-          name: 'DiscogsOAuth');
-
-      if (!mounted) return;
-      await _completeOnboarding();
-    } catch (e, st) {
-      log('DISCOGS-OAUTH FAILED: $e',
-          name: 'DiscogsOAuth', error: e, stackTrace: st);
-      if (!mounted) return;
-      setState(() => _connectingDiscogs = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: SpinnerTheme.surface,
-          content: Text(
-            'Could not connect to Discogs: $e',
-            style: SpinnerTheme.nunito(
-              size: 14,
-              weight: FontWeight.w500,
-              color: SpinnerTheme.white,
-            ),
-          ),
-        ),
-      );
-    }
-  }
-
-  Future<void> _openDiscogsSignup() async {
-    final uri = Uri.parse('https://www.discogs.com/users/create');
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
   }
 
   @override
@@ -225,13 +143,37 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 physics: const NeverScrollableScrollPhysics(),
                 onPageChanged: (page) => setState(() => _currentPage = page),
                 children: [
-                  _buildWelcomePage(),
+                  _buildShowcasePage(
+                    icon: Icons.qr_code_scanner_rounded,
+                    title: 'Scan any record',
+                    body:
+                        'Point at the barcode — or just snap the cover. '
+                        'Spinner identifies the exact pressing and pulls its '
+                        'market value in seconds.',
+                  ),
+                  _buildShowcasePage(
+                    icon: Icons.album_rounded,
+                    title: 'Build your collection',
+                    body:
+                        'Every record you scan lands in your collection with '
+                        'its value, condition grade, and history — your whole '
+                        'shelf, organized.',
+                  ),
+                  _buildShowcasePage(
+                    icon: Icons.trending_down_rounded,
+                    title: 'Never overpay again',
+                    body:
+                        'Add records to your wishlist and get notified the '
+                        'moment a copy drops in price. Spinner finds the '
+                        'cheapest one for you.',
+                  ),
                   _buildGenresPage(),
-                  _buildCollectionSizePage(),
-                  _buildDiscogsPage(),
                 ],
               ),
             ),
+
+            // Pinned, always-aligned bottom button
+            _buildPinnedButton(),
           ],
         ),
       ),
@@ -241,7 +183,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Widget _buildDotIndicators() {
     return Row(
       mainAxisSize: MainAxisSize.min,
-      children: List.generate(4, (index) {
+      children: List.generate(_pageCount, (index) {
         final isActive = index == _currentPage;
         return AnimatedContainer(
           duration: const Duration(milliseconds: 250),
@@ -257,101 +199,67 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
-  // ─── Screen 1: Welcome + Name ───────────────────────────────────────
+  // ─── Showcase slide (scan / collection / wishlist) ──────────────────
 
-  Widget _buildWelcomePage() {
+  Widget _buildShowcasePage({
+    required IconData icon,
+    required String title,
+    required String body,
+  }) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
+      padding: const EdgeInsets.fromLTRB(32, 0, 32, 24),
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          minHeight: MediaQuery.of(context).size.height * 0.75,
+          minHeight: MediaQuery.of(context).size.height * 0.6,
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const SizedBox(height: 48),
-            const Icon(Icons.album, color: SpinnerTheme.accent, size: 72),
             const SizedBox(height: 24),
+            Container(
+              width: 104,
+              height: 104,
+              decoration: BoxDecoration(
+                color: SpinnerTheme.accent.withOpacity(0.15),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: SpinnerTheme.accent, size: 52),
+            ),
+            const SizedBox(height: 36),
             Text(
-              'Welcome to Spinner',
+              title,
+              textAlign: TextAlign.center,
               style: SpinnerTheme.nunito(
                 size: 28,
                 weight: FontWeight.w800,
                 color: SpinnerTheme.white,
               ),
-              textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             Text(
-              'Your vinyl collection deserves to be valued.',
+              body,
+              textAlign: TextAlign.center,
               style: SpinnerTheme.nunito(
                 size: 16,
                 weight: FontWeight.w400,
                 color: SpinnerTheme.grey,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 40),
-            TextField(
-              controller: _nameController,
-              onChanged: (_) => setState(() {}),
-              textInputAction: TextInputAction.done,
-              onSubmitted: (_) {
-                if (_nameController.text.trim().isNotEmpty) _nextPage();
-              },
-              style: SpinnerTheme.nunito(
-                size: 16,
-                weight: FontWeight.w500,
-                color: SpinnerTheme.white,
-              ),
-              decoration: InputDecoration(
-                hintText: "What's your name?",
-                hintStyle: SpinnerTheme.nunito(
-                  size: 16,
-                  weight: FontWeight.w400,
-                  color: SpinnerTheme.grey,
-                ),
-                filled: true,
-                fillColor: SpinnerTheme.surface,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: const BorderSide(color: SpinnerTheme.border),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: const BorderSide(color: SpinnerTheme.border),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide:
-                      const BorderSide(color: SpinnerTheme.accent, width: 2),
-                ),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                height: 1.5,
               ),
             ),
-            const SizedBox(height: 48),
-            _ContinueButton(
-              label: 'Continue',
-              onTap:
-                  _nameController.text.trim().isNotEmpty ? _nextPage : null,
-            ),
-            const SizedBox(height: 32),
           ],
         ),
       ),
     );
   }
 
-  // ─── Screen 2: Genres ───────────────────────────────────────────────
+  // ─── Genre selection ────────────────────────────────────────────────
 
   Widget _buildGenresPage() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
+      padding: const EdgeInsets.fromLTRB(32, 8, 32, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 32),
           Text(
             'Pick your favorite genres',
             style: SpinnerTheme.nunito(
@@ -415,179 +323,42 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               );
             }).toList(),
           ),
-          const SizedBox(height: 40),
-          _ContinueButton(
-            label: 'Continue',
-            onTap: _selectedGenres.isNotEmpty ? _nextPage : null,
-          ),
-          const SizedBox(height: 32),
         ],
       ),
     );
   }
 
-  // ─── Screen 3: Collection Size ──────────────────────────────────────
+  // ─── Pinned bottom button (same position on every step) ─────────────
 
-  Widget _buildCollectionSizePage() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 32),
-          Text(
-            'How many records\ndo you own?',
-            style: SpinnerTheme.nunito(
-              size: 28,
-              weight: FontWeight.w800,
-              color: SpinnerTheme.white,
-            ),
-          ),
-          const SizedBox(height: 32),
-          ...List.generate(_collectionSizes.length, (index) {
-            final size = _collectionSizes[index];
-            final isSelected = _collectionSize == size;
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: GestureDetector(
-                onTap: () => setState(() => _collectionSize = size),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? SpinnerTheme.accent.withOpacity(0.15)
-                        : SpinnerTheme.surface,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: isSelected
-                          ? SpinnerTheme.accent
-                          : SpinnerTheme.border,
-                      width: isSelected ? 2 : 1,
-                    ),
-                  ),
-                  child: Text(
-                    size,
-                    style: SpinnerTheme.nunito(
-                      size: 16,
-                      weight: FontWeight.w600,
-                      color: isSelected
-                          ? SpinnerTheme.accent
-                          : SpinnerTheme.white,
-                    ),
-                  ),
-                ),
-              ),
-            );
-          }),
-          const SizedBox(height: 40),
-          _ContinueButton(
-            label: 'Continue',
-            onTap: _collectionSize != null ? _nextPage : null,
-          ),
-          const SizedBox(height: 32),
-        ],
+  Widget _buildPinnedButton() {
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+        24,
+        14,
+        24,
+        MediaQuery.of(context).padding.bottom + 14,
       ),
-    );
-  }
-
-  // ─── Screen 4: Connect Discogs ──────────────────────────────────────
-
-  Widget _buildDiscogsPage() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          minHeight: MediaQuery.of(context).size.height * 0.75,
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const SizedBox(height: 48),
-            const Icon(Icons.sync_alt, color: SpinnerTheme.accent, size: 64),
-            const SizedBox(height: 24),
-            Text(
-              'Import your collection',
-              style: SpinnerTheme.nunito(
-                size: 28,
-                weight: FontWeight.w800,
-                color: SpinnerTheme.white,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Connect your Discogs account to sync your vinyl collection.',
-              style: SpinnerTheme.nunito(
-                size: 15,
-                weight: FontWeight.w400,
-                color: SpinnerTheme.grey,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 48),
-            _ContinueButton(
-              label:
-                  _connectingDiscogs ? 'Connecting...' : 'Connect Discogs',
-              onTap: _connectingDiscogs ? null : _connectDiscogs,
-            ),
-            const SizedBox(height: 16),
-            TextButton(
-              onPressed: _connectingDiscogs ? null : _openDiscogsSignup,
-              child: Text(
-                'Create Discogs Account',
-                style: SpinnerTheme.nunito(
-                  size: 16,
-                  weight: FontWeight.w600,
-                  color: SpinnerTheme.accent,
-                ),
-              ),
-            ),
-            TextButton(
-              onPressed: _connectingDiscogs ? null : _completeOnboarding,
-              child: Text(
-                'Skip for now',
-                style: SpinnerTheme.nunito(
-                  size: 16,
-                  weight: FontWeight.w600,
-                  color: SpinnerTheme.grey,
-                ),
-              ),
-            ),
-            const SizedBox(height: 32),
-          ],
-        ),
+      decoration: BoxDecoration(
+        color: SpinnerTheme.bg,
+        border: Border(top: BorderSide(color: SpinnerTheme.border)),
       ),
-    );
-  }
-}
-
-class _ContinueButton extends StatelessWidget {
-  final String label;
-  final VoidCallback? onTap;
-
-  const _ContinueButton({required this.label, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final enabled = onTap != null;
-    return SizedBox(
-      width: double.infinity,
-      height: 56,
-      child: Material(
-        color: enabled ? SpinnerTheme.accent : SpinnerTheme.surface,
-        borderRadius: BorderRadius.circular(14),
-        child: InkWell(
-          onTap: onTap,
+      child: SizedBox(
+        width: double.infinity,
+        height: 56,
+        child: Material(
+          color: _canAdvance ? SpinnerTheme.accent : SpinnerTheme.surface,
           borderRadius: BorderRadius.circular(14),
-          child: Center(
-            child: Text(
-              label,
-              style: SpinnerTheme.nunito(
-                size: 17,
-                weight: FontWeight.w700,
-                color: enabled ? SpinnerTheme.white : SpinnerTheme.grey,
+          child: InkWell(
+            onTap: _canAdvance ? _onPrimary : null,
+            borderRadius: BorderRadius.circular(14),
+            child: Center(
+              child: Text(
+                'Continue',
+                style: SpinnerTheme.nunito(
+                  size: 17,
+                  weight: FontWeight.w700,
+                  color: _canAdvance ? SpinnerTheme.white : SpinnerTheme.grey,
+                ),
               ),
             ),
           ),

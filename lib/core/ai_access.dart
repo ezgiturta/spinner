@@ -1,12 +1,12 @@
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Tracks free-tier usage of AI features and resolves Pro entitlement.
+/// Resolves Pro entitlement for premium features.
 ///
-/// Free quotas (intentionally generous on first try, tight after):
-/// - condition grader: 1 use
-/// - album story: 3 uses
-/// - mood picker: 3 uses
+/// Spinner is a (skippable) hard paywall: there are NO free uses — scanning,
+/// AI grading, album stories, and mood picks all require an active
+/// subscription. The free-quota counters are kept at 0 so every `canUse*`
+/// check collapses to `isPro`.
 class AiAccess {
   AiAccess._();
 
@@ -14,9 +14,9 @@ class AiAccess {
   static const _kStory = 'ai_uses_story';
   static const _kMood = 'ai_uses_mood';
 
-  static const freeConditionUses = 1;
-  static const freeStoryUses = 3;
-  static const freeMoodUses = 3;
+  static const freeConditionUses = 0;
+  static const freeStoryUses = 0;
+  static const freeMoodUses = 0;
 
   /// True if the user has any active RevenueCat entitlement. Best-effort —
   /// returns false if RevenueCat is not configured or call fails.

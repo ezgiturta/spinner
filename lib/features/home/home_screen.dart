@@ -5,7 +5,9 @@ import 'package:intl/intl.dart';
 import 'package:scatesdk_flutter/scatesdk_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/ai_access.dart';
 import '../../core/database.dart';
+import '../../core/subscription_gate.dart';
 import '../../core/theme.dart';
 import '../ai/mood_picker_sheet.dart';
 
@@ -22,6 +24,7 @@ class _HomeScreenState extends State<HomeScreen> {
   static bool _homeOpenedOnce = false;
 
   bool _loading = true;
+  bool _isPro = false;
   String _userName = '';
   List<String> _genres = [];
 
@@ -56,10 +59,12 @@ class _HomeScreenState extends State<HomeScreen> {
         AppDatabase.getRecentlyScanned(),
         AppDatabase.getNeglectedRecords(),
       ]);
+      final pro = await AiAccess.isPro();
 
       if (!mounted) return;
 
       setState(() {
+        _isPro = pro;
         _userName = prefs.getString('user_name') ?? '';
         _genres = prefs.getStringList('genres') ?? [];
         _totalValue = (results[0] as num?)?.toDouble() ?? 0;
@@ -73,6 +78,74 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted) return;
       setState(() => _loading = false);
     }
+  }
+
+  // Premium actions re-trigger the paywall every tap until the user subscribes.
+  Future<void> _openScan() async {
+    if (await SubscriptionGate.requirePro(context)) {
+      if (mounted) context.push('/scan');
+    }
+  }
+
+  Future<void> _openMood() async {
+    if (await SubscriptionGate.requirePro(context)) {
+      if (mounted) MoodPickerSheet.show(context);
+    }
+  }
+
+  Widget _buildProBadge() {
+    if (_isPro) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: SpinnerTheme.accent,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.workspace_premium,
+                color: SpinnerTheme.white, size: 14),
+            const SizedBox(width: 4),
+            Text(
+              'PRO',
+              style: SpinnerTheme.nunito(
+                size: 12,
+                weight: FontWeight.w800,
+                color: SpinnerTheme.white,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    return GestureDetector(
+      onTap: () => context.push('/paywall'),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: SpinnerTheme.accent.withOpacity(0.15),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: SpinnerTheme.accent),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.workspace_premium,
+                color: SpinnerTheme.accent, size: 14),
+            const SizedBox(width: 4),
+            Text(
+              'Unlock Pro',
+              style: SpinnerTheme.nunito(
+                size: 12,
+                weight: FontWeight.w800,
+                color: SpinnerTheme.accent,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -124,6 +197,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
+          _buildProBadge(),
           IconButton(
             icon: const Icon(Icons.settings, color: SpinnerTheme.grey),
             onPressed: () => context.push('/settings'),
@@ -171,7 +245,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
       child: InkWell(
-        onTap: () => MoodPickerSheet.show(context),
+        onTap: _openMood,
         borderRadius: BorderRadius.circular(16),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -231,7 +305,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       child: GestureDetector(
-        onTap: () => context.push('/scan'),
+        onTap: _openScan,
         child: Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 24),
