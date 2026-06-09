@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 import '../../core/database.dart';
 import '../../core/itunes_api.dart';
 import '../../core/price_alert_service.dart';
+import '../../core/subscription_gate.dart';
 import '../../core/theme.dart';
 
 class WantlistScreen extends StatefulWidget {
@@ -450,7 +451,12 @@ class _WantlistScreenState extends State<WantlistScreen> {
               SizedBox(
                 width: 72,
                 child: OutlinedButton(
-                  onPressed: () => _showPriceAlertDialog(item),
+                  onPressed: () async {
+                    // Price-drop alerts are a Pro feature.
+                    if (await SubscriptionGate.requirePro(context) && mounted) {
+                      _showPriceAlertDialog(item);
+                    }
+                  },
                   style: OutlinedButton.styleFrom(
                     foregroundColor: SpinnerTheme.accent,
                     side: BorderSide(color: SpinnerTheme.accent),
