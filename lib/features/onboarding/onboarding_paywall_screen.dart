@@ -447,7 +447,7 @@ class _OnboardingPaywallScreenState extends State<OnboardingPaywallScreen> {
             TextSpan(
               children: [
                 TextSpan(
-                  text: '2,140 ',
+                  text: 'Join thousands ',
                   style: SpinnerTheme.nunito(
                     size: 13,
                     weight: FontWeight.w800,
@@ -455,7 +455,7 @@ class _OnboardingPaywallScreenState extends State<OnboardingPaywallScreen> {
                   ),
                 ),
                 TextSpan(
-                  text: 'collectors joined this week',
+                  text: 'of vinyl collectors',
                   style: SpinnerTheme.nunito(
                     size: 13,
                     weight: FontWeight.w600,
