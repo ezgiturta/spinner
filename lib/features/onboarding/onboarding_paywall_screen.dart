@@ -3,6 +3,7 @@ import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:scatesdk_flutter/scatesdk_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -121,6 +122,7 @@ class _OnboardingPaywallScreenState extends State<OnboardingPaywallScreen> {
       _error = null;
     });
     try {
+      // Opens the native StoreKit purchase sheet.
       await Purchases.purchasePackage(pkg);
       if (!mounted) return;
       await _exit();
@@ -175,141 +177,316 @@ class _OnboardingPaywallScreenState extends State<OnboardingPaywallScreen> {
     }
   }
 
-  String _priceFor(_Plan plan) {
+  // ── Pricing helpers ─────────────────────────────────────────────────
+
+  double get _weeklyPrice => _weeklyPkg?.storeProduct.price ?? 5.99;
+  double get _yearlyPrice => _yearlyPkg?.storeProduct.price ?? 39.99;
+
+  String _priceString(_Plan plan) {
     final pkg = plan == _Plan.weekly ? _weeklyPkg : _yearlyPkg;
     if (pkg != null) return pkg.storeProduct.priceString;
     return plan == _Plan.weekly ? '\$5.99' : '\$39.99';
   }
 
+  String get _yearlyPerWeek {
+    final code = _yearlyPkg?.storeProduct.currencyCode ?? 'USD';
+    final perWeek = _yearlyPrice / 52.0;
+    try {
+      return NumberFormat.simpleCurrency(name: code).format(perWeek);
+    } catch (_) {
+      return '\$${perWeek.toStringAsFixed(2)}';
+    }
+  }
+
+  int get _savePct {
+    if (_weeklyPrice <= 0) return 0;
+    final pct = (1 - (_yearlyPrice / 52.0) / _weeklyPrice) * 100;
+    return pct.clamp(0, 99).round();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).padding.bottom;
     return Scaffold(
       backgroundColor: SpinnerTheme.bg,
       body: Stack(
         children: [
-          SafeArea(
-            bottom: false,
-            child: SingleChildScrollView(
-              padding: EdgeInsets.fromLTRB(
-                24,
-                32,
-                24,
-                MediaQuery.of(context).padding.bottom + 180,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const SizedBox(height: 16),
-                  Text(
-                    'Unlock Spinner Pro',
-                    textAlign: TextAlign.center,
-                    style: SpinnerTheme.nunito(
-                      size: 28,
-                      weight: FontWeight.w800,
-                      color: SpinnerTheme.white,
-                    ),
+          SingleChildScrollView(
+            padding: EdgeInsets.only(bottom: bottomInset + 210),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _buildHero(),
+                const SizedBox(height: 18),
+                Text(
+                  'Join Spinner Pro',
+                  textAlign: TextAlign.center,
+                  style: SpinnerTheme.nunito(
+                    size: 30,
+                    weight: FontWeight.w800,
+                    color: SpinnerTheme.white,
                   ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'AI condition grading, mood picks, and\nalbum stories — with no pressure.',
-                    textAlign: TextAlign.center,
-                    style: SpinnerTheme.nunito(
-                      size: 14,
-                      weight: FontWeight.w400,
-                      color: SpinnerTheme.grey,
-                      height: 1.5,
-                    ),
+                ),
+                const SizedBox(height: 22),
+                _buildFeatures(),
+                const SizedBox(height: 26),
+                _buildSocialProof(),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+                  child: Column(
+                    children: [
+                      _PlanCard(
+                        title: 'Annual',
+                        price: _priceString(_Plan.yearly),
+                        period: '/ year',
+                        trailing: '$_yearlyPerWeek / week',
+                        badge: _savePct > 0 ? 'SAVE $_savePct%' : null,
+                        selected: _selected == _Plan.yearly,
+                        onTap: () =>
+                            setState(() => _selected = _Plan.yearly),
+                      ),
+                      const SizedBox(height: 12),
+                      _PlanCard(
+                        title: 'Weekly',
+                        price: _priceString(_Plan.weekly),
+                        period: '/ week',
+                        trailing: null,
+                        badge: null,
+                        selected: _selected == _Plan.weekly,
+                        onTap: () =>
+                            setState(() => _selected = _Plan.weekly),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 36),
-                  Text(
-                    'Everything in Spinner Pro',
-                    style: SpinnerTheme.nunito(
-                      size: 18,
-                      weight: FontWeight.w800,
-                      color: SpinnerTheme.white,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  _TimelineItem(
-                    icon: Icons.auto_awesome_rounded,
-                    isFirst: true,
-                    title: 'Unlimited AI condition grading',
-                    subtitle: 'Grade any record\'s condition — no caps',
-                  ),
-                  _TimelineItem(
-                    icon: Icons.auto_stories_rounded,
-                    title: 'Mood picks & album stories',
-                    subtitle:
-                        'Unlimited AI mood matches and album deep-dives',
-                  ),
-                  _TimelineItem(
-                    icon: Icons.sell_rounded,
-                    isLast: true,
-                    title: 'Live market pricing',
-                    subtitle:
-                        'eBay, Reverb & Discogs values on every record',
-                  ),
-                  const SizedBox(height: 24),
-                  _PlanCard(
-                    selected: _selected == _Plan.weekly,
-                    price: _priceFor(_Plan.weekly),
-                    period: '/week',
-                    subtitle: null,
-                    onTap: () => setState(() => _selected = _Plan.weekly),
-                  ),
-                  const SizedBox(height: 12),
-                  _PlanCard(
-                    selected: _selected == _Plan.yearly,
-                    price: _priceFor(_Plan.yearly),
-                    period: '/year',
-                    subtitle: 'Best value · just \$0.11/day',
-                    onTap: () => setState(() => _selected = _Plan.yearly),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
-          // Close button
+
+          // Close button (top-left, like the reference)
           Positioned(
             top: MediaQuery.of(context).padding.top + 8,
-            right: 16,
+            left: 16,
             child: GestureDetector(
               onTap: _loading ? null : _exit,
               child: Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: SpinnerTheme.surface,
+                width: 38,
+                height: 38,
+                decoration: const BoxDecoration(
+                  color: SpinnerTheme.white,
                   shape: BoxShape.circle,
-                  border: Border.all(color: SpinnerTheme.border),
                 ),
-                child: const Icon(
-                  Icons.close,
-                  color: SpinnerTheme.grey,
-                  size: 18,
+                child: const Icon(Icons.close, color: Colors.black, size: 20),
+              ),
+            ),
+          ),
+
+          // Pinned bottom CTA
+          Positioned(left: 0, right: 0, bottom: 0, child: _buildBottomCta()),
+        ],
+      ),
+    );
+  }
+
+  // ── Hero: synthwave sunset + vinyl ──────────────────────────────────
+
+  Widget _buildHero() {
+    return SizedBox(
+      height: 290,
+      width: double.infinity,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Sky gradient
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0xFF120A24),
+                  Color(0xFF3A1C5E),
+                  Color(0xFF7A3D8F),
+                  Color(0xFFE8615F),
+                  Color(0xFFF2A65A),
+                ],
+                stops: [0.0, 0.32, 0.55, 0.78, 1.0],
+              ),
+            ),
+          ),
+          // Sun
+          Positioned(
+            top: 44,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Container(
+                width: 150,
+                height: 150,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Color(0xFFFFC56B), Color(0xFFFF6B9D)],
+                  ),
                 ),
               ),
             ),
           ),
-          // Bottom CTA
+          // Floating album squares (the "flying cards" motif)
+          Positioned(
+            top: 96,
+            left: 26,
+            child: Transform.rotate(
+              angle: -0.32,
+              child: _floatingSquare(58),
+            ),
+          ),
+          Positioned(
+            top: 110,
+            right: 26,
+            child: Transform.rotate(
+              angle: 0.32,
+              child: _floatingSquare(58),
+            ),
+          ),
+          // Vinyl disc, center
+          const Center(child: _VinylDisc(size: 132)),
+          // Fade into the dark feature list
           Positioned(
             left: 0,
             right: 0,
             bottom: 0,
-            child: _buildBottomCta(),
+            height: 120,
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Colors.transparent, SpinnerTheme.bg],
+                ),
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
+  Widget _floatingSquare(double size) {
+    return Container(
+      width: size,
+      height: size * 1.18,
+      decoration: BoxDecoration(
+        color: SpinnerTheme.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: SpinnerTheme.accent.withOpacity(0.6)),
+        boxShadow: [
+          BoxShadow(
+            color: SpinnerTheme.accent.withOpacity(0.35),
+            blurRadius: 16,
+          ),
+        ],
+      ),
+      child: const Icon(Icons.album, color: SpinnerTheme.grey, size: 22),
+    );
+  }
+
+  // ── Feature list ────────────────────────────────────────────────────
+
+  Widget _buildFeatures() {
+    const feats = <List<String>>[
+      ['🎯', 'Scan any record — unlimited'],
+      ['💎', 'Live Discogs, eBay & Reverb values'],
+      ['⚡', 'AI condition grading from a photo'],
+      ['🔥', 'Album stories & mood picks'],
+      ['✨', 'Wishlist price-drop alerts'],
+    ];
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 28),
+      child: Column(
+        children: [
+          for (final f in feats)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                children: [
+                  Text(f[0], style: const TextStyle(fontSize: 22)),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Text(
+                      f[1],
+                      style: SpinnerTheme.nunito(
+                        size: 16,
+                        weight: FontWeight.w700,
+                        color: SpinnerTheme.white,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // ── Social proof pill (points to the annual card) ───────────────────
+
+  Widget _buildSocialProof() {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: SpinnerTheme.green,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(
+                  text: '2,140 ',
+                  style: SpinnerTheme.nunito(
+                    size: 13,
+                    weight: FontWeight.w800,
+                    color: Colors.black,
+                  ),
+                ),
+                TextSpan(
+                  text: 'collectors joined this week',
+                  style: SpinnerTheme.nunito(
+                    size: 13,
+                    weight: FontWeight.w600,
+                    color: Colors.black,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        Transform.translate(
+          offset: const Offset(0, -3),
+          child: Transform.rotate(
+            angle: 0.785398,
+            child: Container(width: 12, height: 12, color: SpinnerTheme.green),
+          ),
+        ),
+        const SizedBox(height: 6),
+      ],
+    );
+  }
+
+  // ── Bottom CTA ──────────────────────────────────────────────────────
+
   Widget _buildBottomCta() {
     return Container(
       padding: EdgeInsets.fromLTRB(
-        24,
-        16,
-        24,
-        MediaQuery.of(context).padding.bottom + 16,
+        20,
+        14,
+        20,
+        MediaQuery.of(context).padding.bottom + 12,
       ),
       decoration: BoxDecoration(
         color: SpinnerTheme.bg,
@@ -334,44 +511,69 @@ class _OnboardingPaywallScreenState extends State<OnboardingPaywallScreen> {
             width: double.infinity,
             height: 56,
             child: Material(
-              color: SpinnerTheme.accent,
-              borderRadius: BorderRadius.circular(14),
-              child: InkWell(
-                onTap: _loading ? null : _subscribe,
-                borderRadius: BorderRadius.circular(14),
-                child: Center(
-                  child: _loading
-                      ? const SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.5,
-                            color: SpinnerTheme.white,
+              borderRadius: BorderRadius.circular(16),
+              clipBehavior: Clip.antiAlias,
+              child: Ink(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFF6C5CE7), Color(0xFF4A7BFF)],
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                  ),
+                ),
+                child: InkWell(
+                  onTap: _loading ? null : _subscribe,
+                  child: Center(
+                    child: _loading
+                        ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.5,
+                              color: SpinnerTheme.white,
+                            ),
+                          )
+                        : Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                'Continue',
+                                style: SpinnerTheme.nunito(
+                                  size: 17,
+                                  weight: FontWeight.w800,
+                                  color: SpinnerTheme.white,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              const Icon(Icons.arrow_forward,
+                                  color: SpinnerTheme.white, size: 20),
+                            ],
                           ),
-                        )
-                      : Text(
-                          'Subscribe',
-                          style: SpinnerTheme.nunito(
-                            size: 17,
-                            weight: FontWeight.w800,
-                            color: SpinnerTheme.white,
-                          ),
-                        ),
+                  ),
                 ),
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
+          Text(
+            'Subscription can be canceled at any time',
+            style: SpinnerTheme.nunito(
+              size: 11,
+              weight: FontWeight.w400,
+              color: SpinnerTheme.grey,
+            ),
+          ),
+          const SizedBox(height: 6),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               _FooterLink(
-                label: 'Terms of use',
+                label: 'Terms',
                 onTap: () => _openUrl('https://spinner-legal.vercel.app/terms'),
               ),
               _FooterDivider(),
               _FooterLink(
-                label: 'Privacy Policy',
+                label: 'Privacy',
                 onTap: () =>
                     _openUrl('https://spinner-legal.vercel.app/privacy'),
               ),
@@ -388,175 +590,207 @@ class _OnboardingPaywallScreenState extends State<OnboardingPaywallScreen> {
   }
 }
 
-class _TimelineItem extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final bool isFirst;
-  final bool isLast;
+// ── Vinyl disc ────────────────────────────────────────────────────────
 
-  const _TimelineItem({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    this.isFirst = false,
-    this.isLast = false,
-  });
+class _VinylDisc extends StatelessWidget {
+  final double size;
+  const _VinylDisc({required this.size});
 
   @override
   Widget build(BuildContext context) {
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Column(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: SpinnerTheme.accent.withOpacity(0.18),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(icon, color: SpinnerTheme.accent, size: 22),
-              ),
-              if (!isLast)
-                Expanded(
-                  child: Container(
-                    width: 2,
-                    color: SpinnerTheme.accent.withOpacity(0.25),
-                  ),
-                ),
-            ],
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: const Color(0xFF0B0B0B),
+        border: Border.all(color: Colors.white.withOpacity(0.10), width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.5),
+            blurRadius: 24,
+            spreadRadius: 2,
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Padding(
-              padding: EdgeInsets.only(bottom: isLast ? 0 : 18, top: 4),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: SpinnerTheme.nunito(
-                      size: 15,
-                      weight: FontWeight.w700,
-                      color: SpinnerTheme.white,
-                    ),
+        ],
+      ),
+      child: Center(
+        child: Container(
+          width: size * 0.62,
+          height: size * 0.62,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border:
+                Border.all(color: Colors.white.withOpacity(0.08), width: 1),
+          ),
+          child: Center(
+            child: Container(
+              width: size * 0.36,
+              height: size * 0.36,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  colors: [Color(0xFF6C5CE7), Color(0xFFE8615F)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: Center(
+                child: Container(
+                  width: size * 0.07,
+                  height: size * 0.07,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: SpinnerTheme.bg,
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: SpinnerTheme.nunito(
-                      size: 13,
-                      weight: FontWeight.w400,
-                      color: SpinnerTheme.grey,
-                      height: 1.4,
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }
 }
 
+// ── Plan card ─────────────────────────────────────────────────────────
+
 class _PlanCard extends StatelessWidget {
-  final bool selected;
+  final String title;
   final String price;
   final String period;
-  final String? subtitle;
+  final String? trailing;
+  final String? badge;
+  final bool selected;
   final VoidCallback onTap;
 
   const _PlanCard({
-    required this.selected,
+    required this.title,
     required this.price,
     required this.period,
-    required this.subtitle,
+    required this.trailing,
+    required this.badge,
+    required this.selected,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-        decoration: BoxDecoration(
-          color: selected
-              ? SpinnerTheme.accent.withOpacity(0.12)
-              : SpinnerTheme.surface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: selected ? SpinnerTheme.accent : SpinnerTheme.border,
-            width: selected ? 2 : 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  RichText(
-                    text: TextSpan(
-                      style: SpinnerTheme.nunito(
-                        size: 18,
-                        weight: FontWeight.w800,
-                        color: SpinnerTheme.white,
-                      ),
-                      children: [
-                        TextSpan(text: price),
-                        TextSpan(
-                          text: period,
-                          style: SpinnerTheme.nunito(
-                            size: 14,
-                            weight: FontWeight.w600,
-                            color: SpinnerTheme.grey,
-                          ),
-                        ),
-                      ],
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        GestureDetector(
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            decoration: BoxDecoration(
+              color: selected
+                  ? SpinnerTheme.accent.withOpacity(0.12)
+                  : SpinnerTheme.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: selected ? SpinnerTheme.accent : SpinnerTheme.border,
+                width: selected ? 2 : 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                // Radio
+                Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: selected ? SpinnerTheme.accent : Colors.transparent,
+                    border: Border.all(
+                      color: selected ? SpinnerTheme.accent : SpinnerTheme.grey,
+                      width: 2,
                     ),
                   ),
-                  if (subtitle != null) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle!,
-                      style: SpinnerTheme.nunito(
-                        size: 12,
-                        weight: FontWeight.w600,
-                        color: SpinnerTheme.accent,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            Container(
-              width: 22,
-              height: 22,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: selected ? SpinnerTheme.accent : SpinnerTheme.grey,
-                  width: 2,
+                  child: selected
+                      ? const Icon(Icons.check, size: 15, color: Colors.white)
+                      : null,
                 ),
-                color: selected ? SpinnerTheme.accent : Colors.transparent,
-              ),
-              child: selected
-                  ? const Icon(Icons.check, size: 14, color: Colors.white)
-                  : null,
+                const SizedBox(width: 14),
+                // Title + price
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: SpinnerTheme.nunito(
+                          size: 15,
+                          weight: FontWeight.w600,
+                          color: SpinnerTheme.white,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(
+                              text: price,
+                              style: SpinnerTheme.nunito(
+                                size: 19,
+                                weight: FontWeight.w800,
+                                color: SpinnerTheme.white,
+                              ),
+                            ),
+                            TextSpan(
+                              text: ' $period',
+                              style: SpinnerTheme.nunito(
+                                size: 13,
+                                weight: FontWeight.w600,
+                                color: SpinnerTheme.grey,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (trailing != null)
+                  Text(
+                    trailing!,
+                    style: SpinnerTheme.nunito(
+                      size: 14,
+                      weight: FontWeight.w700,
+                      color: SpinnerTheme.white,
+                    ),
+                  ),
+              ],
             ),
-          ],
+          ),
         ),
-      ),
+        if (badge != null)
+          Positioned(
+            top: -9,
+            right: 16,
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+              decoration: BoxDecoration(
+                color: SpinnerTheme.green,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                badge!,
+                style: SpinnerTheme.nunito(
+                  size: 11,
+                  weight: FontWeight.w800,
+                  color: Colors.black,
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
+
+// ── Footer links ──────────────────────────────────────────────────────
 
 class _FooterLink extends StatelessWidget {
   final String label;
