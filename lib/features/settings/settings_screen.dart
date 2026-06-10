@@ -211,51 +211,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  Future<void> _resetOnboarding() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: SpinnerTheme.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: Text(
-          'Reset Onboarding',
-          style: SpinnerTheme.nunito(
-            size: 16,
-            weight: FontWeight.w600,
-            color: SpinnerTheme.white,
-          ),
-        ),
-        content: Text(
-          'This will reset the onboarding flow. You will be taken back to the welcome screen.',
-          style: SpinnerTheme.nunito(size: 14, color: SpinnerTheme.greyLight),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text(
-              'Cancel',
-              style: SpinnerTheme.nunito(size: 14, color: SpinnerTheme.grey),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text(
-              'Reset',
-              style: SpinnerTheme.nunito(size: 14, color: SpinnerTheme.red),
-            ),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true || !mounted) return;
-
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('onboarding_complete', false);
-    if (!mounted) return;
-    context.go('/onboarding');
-  }
-
   Future<void> _clearAllData() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -438,13 +393,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           const SizedBox(height: 24),
           _buildSectionHeader('Danger Zone'),
-          _buildRow(
-            icon: Icons.restart_alt,
-            title: 'Reset Onboarding',
-            titleColor: SpinnerTheme.red,
-            trailing: Icon(Icons.chevron_right, color: SpinnerTheme.red),
-            onTap: _resetOnboarding,
-          ),
           _buildRow(
             icon: Icons.delete_forever_outlined,
             title: 'Clear All Data',

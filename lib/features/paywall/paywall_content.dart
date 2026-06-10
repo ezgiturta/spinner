@@ -67,57 +67,63 @@ class PaywallContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.of(context).padding.bottom;
+    // No scroll — everything fits on one screen. The middle section flexes to
+    // fill whatever space is left between the hero and the pinned CTA.
     return Stack(
       children: [
-        SingleChildScrollView(
-          padding: EdgeInsets.only(bottom: bottomInset + 210),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              _buildHero(),
-              const SizedBox(height: 18),
-              Text(
-                'Join Spinner Pro',
-                textAlign: TextAlign.center,
-                style: SpinnerTheme.nunito(
-                  size: 30,
-                  weight: FontWeight.w800,
-                  color: SpinnerTheme.white,
-                ),
+        Column(
+          children: [
+            _buildHero(),
+            const SizedBox(height: 8),
+            Text(
+              'Join Spinner Pro',
+              textAlign: TextAlign.center,
+              style: SpinnerTheme.nunito(
+                size: 27,
+                weight: FontWeight.w800,
+                color: SpinnerTheme.white,
               ),
-              const SizedBox(height: 22),
-              _buildFeatures(),
-              const SizedBox(height: 26),
-              _buildSocialProof(),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
                 child: Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    _PlanCard(
-                      title: 'Annual',
-                      price: _priceString(PaywallPlan.yearly),
-                      period: '/ year',
-                      trailing: '$_yearlyPerWeek / week',
-                      badge: _savePct > 0 ? 'SAVE $_savePct%' : null,
-                      selected: selected == PaywallPlan.yearly,
-                      onTap: () => onSelect(PaywallPlan.yearly),
-                    ),
-                    const SizedBox(height: 12),
-                    _PlanCard(
-                      title: 'Weekly',
-                      price: _priceString(PaywallPlan.weekly),
-                      period: '/ week',
-                      trailing: null,
-                      badge: null,
-                      selected: selected == PaywallPlan.weekly,
-                      onTap: () => onSelect(PaywallPlan.weekly),
+                    _buildFeatures(),
+                    _buildSocialProof(),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Column(
+                        children: [
+                          _PlanCard(
+                            title: 'Annual',
+                            price: _priceString(PaywallPlan.yearly),
+                            period: '/ year',
+                            trailing: '$_yearlyPerWeek / week',
+                            badge: _savePct > 0 ? 'SAVE $_savePct%' : null,
+                            selected: selected == PaywallPlan.yearly,
+                            onTap: () => onSelect(PaywallPlan.yearly),
+                          ),
+                          const SizedBox(height: 12),
+                          _PlanCard(
+                            title: 'Weekly',
+                            price: _priceString(PaywallPlan.weekly),
+                            period: '/ week',
+                            trailing: null,
+                            badge: null,
+                            selected: selected == PaywallPlan.weekly,
+                            onTap: () => onSelect(PaywallPlan.weekly),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
               ),
-            ],
-          ),
+            ),
+            _buildBottomCta(context),
+          ],
         ),
 
         // Close button (top-left)
@@ -137,9 +143,6 @@ class PaywallContent extends StatelessWidget {
             ),
           ),
         ),
-
-        // Pinned bottom CTA
-        Positioned(left: 0, right: 0, bottom: 0, child: _buildBottomCta(context)),
       ],
     );
   }
@@ -147,7 +150,7 @@ class PaywallContent extends StatelessWidget {
   // ── Hero: synthwave sunset + vinyl ──
   Widget _buildHero() {
     return SizedBox(
-      height: 290,
+      height: 240,
       width: double.infinity,
       child: Stack(
         fit: StackFit.expand,
