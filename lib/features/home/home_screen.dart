@@ -94,57 +94,45 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildProBadge() {
-    if (_isPro) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        decoration: BoxDecoration(
-          color: SpinnerTheme.accent,
-          borderRadius: BorderRadius.circular(20),
+    // Cardly-style purple PRO pill: gradient + lightning bolt.
+    final badge = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF8B5CF6), Color(0xFF4F7BFF)],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.workspace_premium,
-                color: SpinnerTheme.white, size: 14),
-            const SizedBox(width: 4),
-            Text(
-              'PRO',
-              style: SpinnerTheme.nunito(
-                size: 12,
-                weight: FontWeight.w800,
-                color: SpinnerTheme.white,
-              ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF6C5CE7).withOpacity(0.4),
+            blurRadius: 12,
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.bolt, color: Colors.white, size: 16),
+          const SizedBox(width: 3),
+          Text(
+            'PRO',
+            style: SpinnerTheme.nunito(
+              size: 13,
+              weight: FontWeight.w800,
+              color: Colors.white,
             ),
-          ],
-        ),
-      );
-    }
+          ),
+        ],
+      ),
+    );
+    // When not subscribed the badge opens the paywall; when subscribed it is
+    // just a status pill.
+    if (_isPro) return badge;
     return GestureDetector(
       onTap: () => context.push('/paywall'),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        decoration: BoxDecoration(
-          color: SpinnerTheme.accent.withOpacity(0.15),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: SpinnerTheme.accent),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.workspace_premium,
-                color: SpinnerTheme.accent, size: 14),
-            const SizedBox(width: 4),
-            Text(
-              'Unlock Pro',
-              style: SpinnerTheme.nunito(
-                size: 12,
-                weight: FontWeight.w800,
-                color: SpinnerTheme.accent,
-              ),
-            ),
-          ],
-        ),
-      ),
+      child: badge,
     );
   }
 
