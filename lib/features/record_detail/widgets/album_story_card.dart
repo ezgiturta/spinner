@@ -352,7 +352,7 @@ class _AlbumStoryCardState extends State<AlbumStoryCard> {
                                   color: SpinnerTheme.white),
                             ),
                             TextSpan(
-                              text: '  —  ${t.why}',
+                              text: '  ·  ${t.why}',
                               style: SpinnerTheme.nunito(
                                   size: 13,
                                   color: SpinnerTheme.greyLight,

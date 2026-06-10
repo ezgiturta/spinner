@@ -47,7 +47,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     ['Identify records & check value', Icons.search],
     ['AI condition grading', Icons.auto_awesome],
     ['Track my collection\'s worth', Icons.trending_up],
-    ['Get price-drop alerts', Icons.notifications_active],
+    ['Get price drop alerts', Icons.notifications_active],
   ];
 
   static const _genres = [
@@ -182,7 +182,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     icon: Icons.qr_code_scanner_rounded,
                     title: 'Scan any record',
                     body:
-                        'Point at the barcode or snap the cover — Spinner IDs '
+                        'Point at the barcode or snap the cover. Spinner IDs '
                         'the exact pressing and pulls its market value in '
                         'seconds.',
                   ),
@@ -577,13 +577,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           _testimonial(
             'Scanned my whole shelf in an afternoon and finally know what it\'s '
             'worth. The price alerts already saved me money.',
-            '— Dave R.',
+            'Dave R.',
           ),
           const SizedBox(height: 12),
           _testimonial(
             'The AI condition grading is scary accurate. Best vinyl app I\'ve '
             'tried, hands down.',
-            '— Mara K.',
+            'Mara K.',
           ),
         ],
       ),

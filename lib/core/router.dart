@@ -12,7 +12,6 @@ import '../features/paywall/paywall_screen.dart';
 import '../features/record_detail/record_detail_screen.dart';
 import '../features/settings/settings_screen.dart';
 import '../features/explore/genre_explorer_screen.dart';
-import 'subscription_gate.dart';
 import 'theme.dart';
 
 abstract class AppRoutes {
@@ -226,9 +225,9 @@ class _BottomNavShell extends StatelessWidget {
     );
   }
 
-  Future<void> _openScan(BuildContext context) async {
-    if (await SubscriptionGate.requirePro(context)) {
-      if (context.mounted) context.go(AppRoutes.scan);
-    }
+  void _openScan(BuildContext context) {
+    // Scanning + identifying is free; the paywall appears only when the result
+    // is about to be revealed (see ScanScreen._saveAndNavigate).
+    context.go(AppRoutes.scan);
   }
 }

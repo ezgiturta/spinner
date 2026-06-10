@@ -16,9 +16,12 @@ class SubscriptionGate {
   /// the paywall and returns false — callers must bail out when false.
   static Future<bool> requirePro(BuildContext context) async {
     if (await AiAccess.isPro()) return true;
-    if (context.mounted) {
-      context.push('/paywall');
-    }
-    return false;
+    if (!context.mounted) return false;
+    // Open the paywall and WAIT for it. PaywallScreen pops `true` on a
+    // successful purchase/restore, so the caller can continue (e.g. reveal the
+    // scan result) without the user having to start over.
+    final purchased = await context.push<bool>('/paywall');
+    if (purchased == true) return true;
+    return AiAccess.isPro();
   }
 }

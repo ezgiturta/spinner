@@ -13,6 +13,7 @@ import '../../core/claude_api.dart';
 import '../../core/database.dart';
 import '../../core/discogs_api.dart';
 import '../../core/itunes_api.dart';
+import '../../core/subscription_gate.dart';
 import '../../core/theme.dart';
 import 'search_results_sheet.dart';
 
@@ -306,6 +307,13 @@ class _ScanScreenState extends State<ScanScreen>
 
   /// Save a search result to the local database and navigate to its detail page.
   Future<void> _saveAndNavigate(Map<String, dynamic> result) async {
+    // Scanning + identifying is free. Revealing the result (its value, and
+    // saving it to the collection) is Pro — so the paywall appears HERE, after
+    // the scan has already found a match. If the user subscribes on the paywall
+    // we continue and show the result; otherwise we stop.
+    if (!await SubscriptionGate.requirePro(context)) return;
+    if (!mounted) return;
+
     final id = const Uuid().v4();
     final title = result['title'] as String? ?? 'Unknown';
     final artist = result['artist'] as String? ?? 'Unknown Artist';

@@ -80,11 +80,10 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // Premium actions re-trigger the paywall every tap until the user subscribes.
-  Future<void> _openScan() async {
-    if (await SubscriptionGate.requirePro(context)) {
-      if (mounted) context.push('/scan');
-    }
+  // Scanning is free; the paywall appears after identify, when the result is
+  // revealed (see ScanScreen._saveAndNavigate).
+  void _openScan() {
+    context.push('/scan');
   }
 
   Future<void> _openMood() async {

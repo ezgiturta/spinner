@@ -166,7 +166,7 @@ class _ConditionGraderScreenState extends State<ConditionGraderScreen> {
             const SizedBox(height: 12),
             _buildPhotoSlot(
               label: 'Vinyl surface',
-              subtitle: 'Optional — improves vinyl grade',
+              subtitle: 'Optional, improves vinyl grade',
               file: _backImage,
               isFront: false,
             ),

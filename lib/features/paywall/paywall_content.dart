@@ -86,40 +86,43 @@ class PaywallContent extends StatelessWidget {
             ),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 6),
+                padding: const EdgeInsets.symmetric(vertical: 4),
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     _buildFeatures(),
+                    const SizedBox(height: 16),
                     _buildSocialProof(),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Column(
-                        children: [
-                          _PlanCard(
-                            title: 'Annual',
-                            price: _priceString(PaywallPlan.yearly),
-                            period: '/ year',
-                            trailing: '$_yearlyPerWeek / week',
-                            badge: _savePct > 0 ? 'SAVE $_savePct%' : null,
-                            selected: selected == PaywallPlan.yearly,
-                            onTap: () => onSelect(PaywallPlan.yearly),
-                          ),
-                          const SizedBox(height: 12),
-                          _PlanCard(
-                            title: 'Weekly',
-                            price: _priceString(PaywallPlan.weekly),
-                            period: '/ week',
-                            trailing: null,
-                            badge: null,
-                            selected: selected == PaywallPlan.weekly,
-                            onTap: () => onSelect(PaywallPlan.weekly),
-                          ),
-                        ],
-                      ),
-                    ),
                   ],
                 ),
+              ),
+            ),
+            // Plan cards live OUTSIDE the flexible region so both (including
+            // Weekly) are always fully visible, no scrolling, never clipped.
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 2, 20, 0),
+              child: Column(
+                children: [
+                  _PlanCard(
+                    title: 'Annual',
+                    price: _priceString(PaywallPlan.yearly),
+                    period: '/ year',
+                    trailing: '$_yearlyPerWeek / week',
+                    badge: _savePct > 0 ? 'SAVE $_savePct%' : null,
+                    selected: selected == PaywallPlan.yearly,
+                    onTap: () => onSelect(PaywallPlan.yearly),
+                  ),
+                  const SizedBox(height: 12),
+                  _PlanCard(
+                    title: 'Weekly',
+                    price: _priceString(PaywallPlan.weekly),
+                    period: '/ week',
+                    trailing: null,
+                    badge: null,
+                    selected: selected == PaywallPlan.weekly,
+                    onTap: () => onSelect(PaywallPlan.weekly),
+                  ),
+                ],
               ),
             ),
             _buildBottomCta(context),
@@ -150,7 +153,7 @@ class PaywallContent extends StatelessWidget {
   // ── Hero: synthwave sunset + vinyl ──
   Widget _buildHero() {
     return SizedBox(
-      height: 240,
+      height: 200,
       width: double.infinity,
       child: Stack(
         fit: StackFit.expand,
@@ -240,11 +243,11 @@ class PaywallContent extends StatelessWidget {
   // ── Features ──
   Widget _buildFeatures() {
     const feats = <List<String>>[
-      ['🎯', 'Scan any record — unlimited'],
+      ['🎯', 'Unlimited record scanning'],
       ['💎', 'Live Discogs, eBay & Reverb values'],
       ['⚡', 'AI condition grading from a photo'],
       ['🔥', 'Album stories & mood picks'],
-      ['✨', 'Wishlist price-drop alerts'],
+      ['✨', 'Wishlist price drop alerts'],
     ];
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 28),
