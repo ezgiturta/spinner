@@ -27,7 +27,7 @@ workflows:
         script: |
           cd $CM_BUILD_DIR
           flutter build ios --release --no-codesign \
-            --build-number=$PROJECT_BUILD_NUMBER \
+            --build-number=$BUILD_NUMBER \
             --dart-define=EBAY_CLIENT_ID=$EBAY_CLIENT_ID \
             --dart-define=EBAY_CLIENT_SECRET=$EBAY_CLIENT_SECRET \
             --dart-define=REVERB_TOKEN=$REVERB_TOKEN \
