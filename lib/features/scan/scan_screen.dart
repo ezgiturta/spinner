@@ -411,21 +411,26 @@ class _ScanScreenState extends State<ScanScreen>
           ],
         ),
       ),
-      body: Column(
+      body: Stack(
         children: [
-          if (_errorMessage != null) _buildErrorBanner(),
-          if (_isSearching) _buildLoadingIndicator(),
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              physics: const NeverScrollableScrollPhysics(),
-              children: [
-                _buildBarcodeTab(),
-                _buildCoverArtTab(),
-                _buildManualSearchTab(),
-              ],
-            ),
+          Column(
+            children: [
+              if (_errorMessage != null) _buildErrorBanner(),
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  physics: const NeverScrollableScrollPhysics(),
+                  children: [
+                    _buildBarcodeTab(),
+                    _buildCoverArtTab(),
+                    _buildManualSearchTab(),
+                  ],
+                ),
+              ),
+            ],
           ),
+          if (_isSearching)
+            const Positioned.fill(child: _IdentifyingOverlay()),
         ],
       ),
     );
@@ -485,33 +490,6 @@ class _ScanScreenState extends State<ScanScreen>
     );
   }
 
-  Widget _buildLoadingIndicator() {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          SizedBox(
-            width: 18,
-            height: 18,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              valueColor: AlwaysStoppedAnimation(SpinnerTheme.accent),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Text(
-            'Searching...',
-            style: SpinnerTheme.nunito(
-              size: 14,
-              weight: FontWeight.w500,
-              color: SpinnerTheme.grey,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   // ---------------------------------------------------------------------------
   // Barcode tab
@@ -951,6 +929,126 @@ class _ScanScreenState extends State<ScanScreen>
           onTap: () => _navigateToRecord(result),
         );
       },
+    );
+  }
+}
+
+/// Full-screen "Identifying the record" overlay shown while a scan resolves —
+/// a sequenced checklist (analyze -> search -> match) like the reference apps,
+/// instead of a bare spinner.
+class _IdentifyingOverlay extends StatefulWidget {
+  const _IdentifyingOverlay();
+
+  @override
+  State<_IdentifyingOverlay> createState() => _IdentifyingOverlayState();
+}
+
+class _IdentifyingOverlayState extends State<_IdentifyingOverlay> {
+  int _step = 0;
+  Timer? _timer;
+
+  static const _steps = [
+    'Analyzing with AI',
+    'Searching the catalog',
+    'Matching the pressing',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(milliseconds: 850), (_) {
+      if (!mounted) return;
+      if (_step < _steps.length - 1) setState(() => _step++);
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: SpinnerTheme.bg.withOpacity(0.97),
+      padding: const EdgeInsets.symmetric(horizontal: 40),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 88,
+            height: 88,
+            child: CircularProgressIndicator(
+              strokeWidth: 5,
+              backgroundColor: SpinnerTheme.surface,
+              valueColor: AlwaysStoppedAnimation(SpinnerTheme.accent),
+            ),
+          ),
+          const SizedBox(height: 32),
+          Text(
+            'Identifying the record',
+            style: SpinnerTheme.nunito(
+              size: 22,
+              weight: FontWeight.w800,
+              color: SpinnerTheme.white,
+            ),
+          ),
+          const SizedBox(height: 28),
+          for (var i = 0; i < _steps.length; i++)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 7),
+              child: Row(
+                children: [
+                  _statusDot(i),
+                  const SizedBox(width: 12),
+                  Text(
+                    _steps[i],
+                    style: SpinnerTheme.nunito(
+                      size: 15,
+                      weight: FontWeight.w600,
+                      color: i <= _step
+                          ? SpinnerTheme.white
+                          : SpinnerTheme.grey,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _statusDot(int i) {
+    if (i < _step) {
+      return Container(
+        width: 22,
+        height: 22,
+        decoration: const BoxDecoration(
+          color: SpinnerTheme.green,
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(Icons.check, size: 14, color: Colors.white),
+      );
+    }
+    if (i == _step) {
+      return SizedBox(
+        width: 22,
+        height: 22,
+        child: CircularProgressIndicator(
+          strokeWidth: 2.5,
+          valueColor: AlwaysStoppedAnimation(SpinnerTheme.accent),
+        ),
+      );
+    }
+    return Container(
+      width: 22,
+      height: 22,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: SpinnerTheme.border, width: 2),
+      ),
     );
   }
 }

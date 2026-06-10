@@ -127,69 +127,108 @@ class _BottomNavShell extends StatelessWidget {
 
   const _BottomNavShell({required this.state, required this.child});
 
-  int _currentIndex(String location) {
-    if (location.startsWith(AppRoutes.explore)) return 2;
-    if (location.startsWith(AppRoutes.collection)) return 3;
-    if (location.startsWith(AppRoutes.scan)) return 1;
-    return 0;
-  }
-
   @override
   Widget build(BuildContext context) {
-    final index = _currentIndex(state.uri.path);
+    final location = state.uri.path;
+    final isHome = location.startsWith(AppRoutes.home);
+    final isExplore = location.startsWith(AppRoutes.explore);
+    final isCollection = location.startsWith(AppRoutes.collection);
 
     return Scaffold(
       backgroundColor: SpinnerTheme.bg,
       body: child,
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: index,
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: SpinnerTheme.bg,
-        selectedItemColor: SpinnerTheme.white,
-        unselectedItemColor: SpinnerTheme.grey,
-        selectedLabelStyle: SpinnerTheme.nunito(size: 11, weight: FontWeight.w600),
-        unselectedLabelStyle: SpinnerTheme.nunito(size: 11),
-        onTap: (i) => _onTabTap(context, i),
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
-            label: 'Home',
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: SpinnerTheme.bg,
+          border: Border(top: BorderSide(color: SpinnerTheme.border)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: SizedBox(
+            height: 64,
+            child: Row(
+              children: [
+                _navItem(Icons.home_rounded, 'Home', isHome,
+                    () => context.go(AppRoutes.home)),
+                _navItem(Icons.explore_rounded, 'Explore', isExplore,
+                    () => context.go(AppRoutes.explore)),
+                _cameraButton(context),
+                _navItem(Icons.album_rounded, 'Collection', isCollection,
+                    () => context.go(AppRoutes.collection)),
+                _navItem(Icons.settings_rounded, 'Settings', false,
+                    () => context.push(AppRoutes.settings)),
+              ],
+            ),
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.qr_code_scanner_outlined),
-            activeIcon: Icon(Icons.qr_code_scanner),
-            label: 'Scan',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.explore_outlined),
-            activeIcon: Icon(Icons.explore),
-            label: 'Explore',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.album_outlined),
-            activeIcon: Icon(Icons.album),
-            label: 'Collection',
-          ),
-        ],
+        ),
       ),
     );
   }
 
-  Future<void> _onTabTap(BuildContext context, int index) async {
-    switch (index) {
-      case 0:
-        context.go(AppRoutes.home);
-      case 1:
-        // Scan is a Pro-only action — gate before navigating. Non-subscribers
-        // get the paywall instead of the scanner, every tap.
-        if (await SubscriptionGate.requirePro(context)) {
-          if (context.mounted) context.go(AppRoutes.scan);
-        }
-      case 2:
-        context.go(AppRoutes.explore);
-      case 3:
-        context.go(AppRoutes.collection);
+  Widget _navItem(
+      IconData icon, String label, bool active, VoidCallback onTap) {
+    final color = active ? SpinnerTheme.white : SpinnerTheme.grey;
+    return Expanded(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: color, size: 24),
+            const SizedBox(height: 3),
+            Text(
+              label,
+              style: SpinnerTheme.nunito(
+                size: 11,
+                weight: active ? FontWeight.w700 : FontWeight.w500,
+                color: color,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Center, elevated camera button — Pro-gated like the Scan tab was.
+  Widget _cameraButton(BuildContext context) {
+    return Expanded(
+      child: Center(
+        child: Transform.translate(
+          offset: const Offset(0, -8),
+          child: GestureDetector(
+            onTap: () => _openScan(context),
+            child: Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF8B5CF6), Color(0xFF4F7BFF)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                border: Border.all(color: SpinnerTheme.bg, width: 4),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF6C5CE7).withOpacity(0.5),
+                    blurRadius: 14,
+                  ),
+                ],
+              ),
+              child: const Icon(Icons.photo_camera_rounded,
+                  color: Colors.white, size: 26),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openScan(BuildContext context) async {
+    if (await SubscriptionGate.requirePro(context)) {
+      if (context.mounted) context.go(AppRoutes.scan);
     }
   }
 }
