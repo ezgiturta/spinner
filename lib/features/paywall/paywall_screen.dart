@@ -7,7 +7,12 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/sdk_init.dart';
 import '../../core/theme.dart';
+import 'paywall_content.dart';
 
+/// In-app paywall, shown when a non-subscriber taps a Pro feature (scan, mood,
+/// Discogs, price alerts), via Settings → Upgrade, or the home Pro badge.
+/// Shares the Cardly-style UI with the onboarding paywall. Pops `true` on a
+/// successful purchase/restore so the caller can refresh entitlement state.
 class PaywallScreen extends StatefulWidget {
   const PaywallScreen({super.key});
 
@@ -15,12 +20,10 @@ class PaywallScreen extends StatefulWidget {
   State<PaywallScreen> createState() => _PaywallScreenState();
 }
 
-enum _Plan { weekly, yearly }
-
 class _PaywallScreenState extends State<PaywallScreen> {
   bool _loading = false;
   String? _error;
-  _Plan _selected = _Plan.yearly;
+  PaywallPlan _selected = PaywallPlan.yearly;
   Package? _weeklyPkg;
   Package? _yearlyPkg;
 
@@ -75,7 +78,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
               _weeklyPkg = weekly;
               _yearlyPkg = yearly;
               if (_yearlyPkg == null && _weeklyPkg != null) {
-                _selected = _Plan.weekly;
+                _selected = PaywallPlan.weekly;
               }
             });
             return;
@@ -91,57 +94,8 @@ class _PaywallScreenState extends State<PaywallScreen> {
         name: 'Paywall');
   }
 
-  String _priceFor(_Plan plan) {
-    final pkg = plan == _Plan.weekly ? _weeklyPkg : _yearlyPkg;
-    if (pkg != null) return pkg.storeProduct.priceString;
-    return plan == _Plan.weekly ? '\$5.99' : '\$39.99';
-  }
-
-  static const _proFeatures = [
-    _Feature(
-      icon: Icons.notifications_active,
-      title: 'Wantlist Alerts',
-      subtitle: 'Get notified when prices drop on records you want',
-    ),
-    _Feature(
-      icon: Icons.all_inclusive,
-      title: 'Unlimited Collection',
-      subtitle: 'No cap on how many records you can track',
-    ),
-    _Feature(
-      icon: Icons.show_chart,
-      title: 'Price History',
-      subtitle: 'See value trends over time for every record',
-    ),
-    _Feature(
-      icon: Icons.account_balance_wallet,
-      title: 'Collection Value',
-      subtitle: 'Real-time total value of your entire collection',
-    ),
-    _Feature(
-      icon: Icons.explore,
-      title: 'Discovery',
-      subtitle: 'Get personalized recommendations based on your taste',
-    ),
-    _Feature(
-      icon: Icons.download,
-      title: 'CSV Export',
-      subtitle: 'Export your collection data anytime',
-    ),
-  ];
-
-  static const _comparisonRows = [
-    _ComparisonRow('Records tracked', '25', 'Unlimited'),
-    _ComparisonRow('Price lookups', '10/mo', 'Unlimited'),
-    _ComparisonRow('Wantlist alerts', '-', 'Included'),
-    _ComparisonRow('Price history', '-', 'Included'),
-    _ComparisonRow('Collection value', '-', 'Included'),
-    _ComparisonRow('Discovery', '-', 'Included'),
-    _ComparisonRow('CSV export', '-', 'Included'),
-  ];
-
-  Future<void> _startTrial() async {
-    final pkg = _selected == _Plan.weekly ? _weeklyPkg : _yearlyPkg;
+  Future<void> _subscribe() async {
+    final pkg = _selected == PaywallPlan.weekly ? _weeklyPkg : _yearlyPkg;
     if (pkg == null) {
       setState(() => _error = 'Plan not available. Please try again later.');
       return;
@@ -150,16 +104,14 @@ class _PaywallScreenState extends State<PaywallScreen> {
       _loading = true;
       _error = null;
     });
-
     try {
+      // Opens the native StoreKit purchase sheet.
       await Purchases.purchasePackage(pkg);
-
       if (!mounted) return;
       Navigator.of(context).pop(true);
     } on PlatformException catch (e) {
       final code = PurchasesErrorHelper.getErrorCode(e);
       if (code == PurchasesErrorCode.purchaseCancelledError) {
-        // User cancelled -- not an error.
         setState(() => _loading = false);
         return;
       }
@@ -167,9 +119,35 @@ class _PaywallScreenState extends State<PaywallScreen> {
         _error = 'Purchase failed. Please try again.';
         _loading = false;
       });
-    } catch (e) {
+    } catch (_) {
       setState(() {
         _error = 'Something went wrong. Please try again.';
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _restore() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final info = await Purchases.restorePurchases();
+      if (info.entitlements.active.isNotEmpty) {
+        if (!mounted) return;
+        Navigator.of(context).pop(true);
+        return;
+      }
+      if (!mounted) return;
+      setState(() {
+        _error = 'No active subscription found to restore.';
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'Restore failed. Please try again.';
         _loading = false;
       });
     }
@@ -186,559 +164,18 @@ class _PaywallScreenState extends State<PaywallScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: SpinnerTheme.bg,
-      body: Stack(
-        children: [
-          // Scrollable content
-          CustomScrollView(
-            slivers: [
-              SliverToBoxAdapter(child: _buildHeader()),
-              SliverToBoxAdapter(child: _buildPlanPicker()),
-              SliverToBoxAdapter(child: _buildFeaturesList()),
-              SliverToBoxAdapter(child: _buildComparison()),
-              // Bottom padding for CTA
-              const SliverToBoxAdapter(child: SizedBox(height: 160)),
-            ],
-          ),
-
-          // Close button
-          Positioned(
-            top: MediaQuery.of(context).padding.top + 8,
-            right: 16,
-            child: GestureDetector(
-              onTap: () => Navigator.of(context).pop(),
-              child: Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: SpinnerTheme.surface,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: SpinnerTheme.border),
-                ),
-                child: Icon(
-                  Icons.close,
-                  color: SpinnerTheme.grey,
-                  size: 18,
-                ),
-              ),
-            ),
-          ),
-
-          // Bottom CTA
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: _buildBottomCta(),
-          ),
-        ],
+      body: PaywallContent(
+        weeklyPkg: _weeklyPkg,
+        yearlyPkg: _yearlyPkg,
+        selected: _selected,
+        onSelect: (p) => setState(() => _selected = p),
+        loading: _loading,
+        error: _error,
+        onSubscribe: _subscribe,
+        onRestore: _restore,
+        onClose: () => Navigator.of(context).pop(),
+        onOpenUrl: _openUrl,
       ),
     );
   }
-
-  Widget _buildHeader() {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        24,
-        MediaQuery.of(context).padding.top + 56,
-        24,
-        24,
-      ),
-      child: Column(
-        children: [
-          Container(
-            width: 72,
-            height: 72,
-            decoration: BoxDecoration(
-              color: SpinnerTheme.accent.withOpacity(0.15),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(Icons.star, color: SpinnerTheme.accent, size: 36),
-          ),
-          const SizedBox(height: 20),
-          Text(
-            'Upgrade to Pro',
-            style: SpinnerTheme.nunito(
-              size: 28,
-              weight: FontWeight.w800,
-              color: SpinnerTheme.white,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Unlock the full scanner, value lookups, and cleaning log.',
-            style: SpinnerTheme.nunito(
-              size: 14,
-              weight: FontWeight.w400,
-              color: SpinnerTheme.grey,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPlanPicker() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
-      child: Column(
-        children: [
-          _buildPlanCard(
-            plan: _Plan.yearly,
-            label: 'Yearly',
-            sub: 'Billed yearly · cancel anytime',
-            price: _priceFor(_Plan.yearly),
-            priceSub: 'per year',
-            badge: 'Best value',
-          ),
-          const SizedBox(height: 12),
-          _buildPlanCard(
-            plan: _Plan.weekly,
-            label: 'Weekly',
-            sub: 'Billed weekly · cancel anytime',
-            price: _priceFor(_Plan.weekly),
-            priceSub: 'per week',
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPlanCard({
-    required _Plan plan,
-    required String label,
-    required String sub,
-    required String price,
-    required String priceSub,
-    String? badge,
-  }) {
-    final selected = _selected == plan;
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Material(
-          color: selected
-              ? SpinnerTheme.accent.withOpacity(0.10)
-              : SpinnerTheme.surface,
-          borderRadius: BorderRadius.circular(14),
-          child: InkWell(
-            onTap: () => setState(() => _selected = plan),
-            borderRadius: BorderRadius.circular(14),
-            child: Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                border: Border.all(
-                  color: selected ? SpinnerTheme.accent : SpinnerTheme.border,
-                  width: selected ? 1.8 : 1,
-                ),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 22,
-                    height: 22,
-                    decoration: BoxDecoration(
-                      color: selected
-                          ? SpinnerTheme.accent
-                          : Colors.transparent,
-                      border: Border.all(
-                        color: selected
-                            ? SpinnerTheme.accent
-                            : SpinnerTheme.grey,
-                        width: 1.4,
-                      ),
-                      shape: BoxShape.circle,
-                    ),
-                    child: selected
-                        ? Icon(Icons.check,
-                            size: 14, color: SpinnerTheme.white)
-                        : null,
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          label,
-                          style: SpinnerTheme.nunito(
-                            size: 16,
-                            weight: FontWeight.w700,
-                            color: SpinnerTheme.white,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          sub,
-                          style: SpinnerTheme.nunito(
-                            size: 12,
-                            weight: FontWeight.w400,
-                            color: SpinnerTheme.grey,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        price,
-                        style: SpinnerTheme.nunito(
-                          size: 16,
-                          weight: FontWeight.w800,
-                          color: SpinnerTheme.white,
-                        ),
-                      ),
-                      Text(
-                        priceSub,
-                        style: SpinnerTheme.nunito(
-                          size: 11,
-                          weight: FontWeight.w500,
-                          color: SpinnerTheme.grey,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-        if (badge != null)
-          Positioned(
-            top: -8,
-            right: 14,
-            child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: SpinnerTheme.accent,
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(
-                badge,
-                style: SpinnerTheme.nunito(
-                  size: 10,
-                  weight: FontWeight.w800,
-                  color: SpinnerTheme.white,
-                ),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildFeaturesList() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            "What's included",
-            style: SpinnerTheme.nunito(
-              size: 20,
-              weight: FontWeight.w700,
-              color: SpinnerTheme.white,
-            ),
-          ),
-          const SizedBox(height: 16),
-          ..._proFeatures.map((f) => _buildFeatureTile(f)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFeatureTile(_Feature feature) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: SpinnerTheme.accent.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(feature.icon, color: SpinnerTheme.accent, size: 20),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  feature.title,
-                  style: SpinnerTheme.nunito(
-                    size: 16,
-                    weight: FontWeight.w700,
-                    color: SpinnerTheme.white,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  feature.subtitle,
-                  style: SpinnerTheme.nunito(
-                    size: 13,
-                    weight: FontWeight.w400,
-                    color: SpinnerTheme.grey,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildComparison() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Free vs Pro',
-            style: SpinnerTheme.nunito(
-              size: 20,
-              weight: FontWeight.w700,
-              color: SpinnerTheme.white,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Container(
-            decoration: BoxDecoration(
-              color: SpinnerTheme.surface,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: SpinnerTheme.border),
-            ),
-            child: Column(
-              children: [
-                // Header row
-                Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        flex: 3,
-                        child: Text(
-                          'Feature',
-                          style: SpinnerTheme.nunito(
-                            size: 13,
-                            weight: FontWeight.w600,
-                            color: SpinnerTheme.grey,
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        flex: 2,
-                        child: Text(
-                          'Free',
-                          textAlign: TextAlign.center,
-                          style: SpinnerTheme.nunito(
-                            size: 13,
-                            weight: FontWeight.w600,
-                            color: SpinnerTheme.grey,
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        flex: 2,
-                        child: Text(
-                          'Pro',
-                          textAlign: TextAlign.center,
-                          style: SpinnerTheme.nunito(
-                            size: 13,
-                            weight: FontWeight.w700,
-                            color: SpinnerTheme.accent,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Divider(height: 1, color: SpinnerTheme.border),
-                ..._comparisonRows.map((row) => _buildComparisonRow(row)),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildComparisonRow(_ComparisonRow row) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 3,
-            child: Text(
-              row.feature,
-              style: SpinnerTheme.nunito(
-                size: 14,
-                weight: FontWeight.w500,
-                color: SpinnerTheme.white,
-              ),
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: Text(
-              row.free,
-              textAlign: TextAlign.center,
-              style: SpinnerTheme.nunito(
-                size: 14,
-                weight: FontWeight.w500,
-                color: row.free == '-'
-                    ? SpinnerTheme.grey
-                    : SpinnerTheme.greyLight,
-              ),
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: Text(
-              row.pro,
-              textAlign: TextAlign.center,
-              style: SpinnerTheme.nunito(
-                size: 14,
-                weight: FontWeight.w600,
-                color: SpinnerTheme.green,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBottomCta() {
-    return Container(
-      padding: EdgeInsets.fromLTRB(
-        24,
-        16,
-        24,
-        MediaQuery.of(context).padding.bottom + 16,
-      ),
-      decoration: BoxDecoration(
-        color: SpinnerTheme.bg,
-        border: Border(top: BorderSide(color: SpinnerTheme.border)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (_error != null) ...[
-            Text(
-              _error!,
-              style: SpinnerTheme.nunito(
-                size: 13,
-                weight: FontWeight.w500,
-                color: SpinnerTheme.red,
-              ),
-            ),
-            const SizedBox(height: 8),
-          ],
-          SizedBox(
-            width: double.infinity,
-            height: 56,
-            child: Material(
-              color: SpinnerTheme.accent,
-              borderRadius: BorderRadius.circular(14),
-              child: InkWell(
-                onTap: _loading ? null : _startTrial,
-                borderRadius: BorderRadius.circular(14),
-                child: Center(
-                  child: _loading
-                      ? SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.5,
-                            color: SpinnerTheme.white,
-                          ),
-                        )
-                      : Text(
-                          'Subscribe',
-                          style: SpinnerTheme.nunito(
-                            size: 17,
-                            weight: FontWeight.w700,
-                            color: SpinnerTheme.white,
-                          ),
-                        ),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              GestureDetector(
-                onTap: () => _openUrl('https://spinner-legal.vercel.app/terms'),
-                child: Text(
-                  'Terms of Use',
-                  style: SpinnerTheme.nunito(
-                    size: 12,
-                    weight: FontWeight.w500,
-                    color: SpinnerTheme.grey,
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Text(
-                  '|',
-                  style: SpinnerTheme.nunito(
-                    size: 12,
-                    weight: FontWeight.w400,
-                    color: SpinnerTheme.grey,
-                  ),
-                ),
-              ),
-              GestureDetector(
-                onTap: () =>
-                    _openUrl('https://spinner-legal.vercel.app/privacy'),
-                child: Text(
-                  'Privacy Policy',
-                  style: SpinnerTheme.nunito(
-                    size: 12,
-                    weight: FontWeight.w500,
-                    color: SpinnerTheme.grey,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Feature {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-
-  const _Feature({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-  });
-}
-
-class _ComparisonRow {
-  final String feature;
-  final String free;
-  final String pro;
-
-  const _ComparisonRow(this.feature, this.free, this.pro);
 }
