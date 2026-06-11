@@ -2,10 +2,11 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'database.dart';
-import 'discogs_api.dart';
+import 'market_value_service.dart';
 
-/// Watches the wantlist for price drops and fires a local notification when
-/// the lowest Discogs price for an item falls under the user's [alert_price].
+/// Watches the wantlist for price drops and fires a local notification when the
+/// lowest live marketplace price (eBay + Reverb, and Discogs when connected)
+/// for an item falls under the user's [alert_price].
 ///
 /// iOS background fetch is unreliable, so we run the check on every cold start
 /// and whenever the user opens the wantlist screen. Last-seen prices are
@@ -37,13 +38,9 @@ class PriceAlertService {
     _ready = true;
   }
 
-  /// Run a one-shot price check against the entire wantlist.
-  /// Silently no-ops if Discogs is not authenticated.
+  /// Run a one-shot price check against the entire wantlist using live
+  /// marketplace prices. No account/auth required.
   Future<void> checkOnce() async {
-    final api = DiscogsApi();
-    await api.init();
-    if (!api.isAuthenticated) return;
-
     final items = await AppDatabase.getWantlist();
     if (items.isEmpty) return;
 
@@ -52,31 +49,33 @@ class PriceAlertService {
     final lastSeenRaw = prefs.getStringList(_lastSeenKey) ?? const <String>[];
     final lastSeen = <String, double>{
       for (final entry in lastSeenRaw)
-        if (entry.contains(':'))
-          entry.split(':').first: double.tryParse(entry.split(':').last) ?? 0,
+        if (entry.contains('='))
+          entry.split('=').first:
+              double.tryParse(entry.split('=').last) ?? 0,
     };
 
     for (final item in items) {
       final alertPrice = (item['alert_price'] as num?)?.toDouble();
       if (alertPrice == null || alertPrice <= 0) continue;
-      final discogsId = (item['discogs_id'] as num?)?.toInt();
-      if (discogsId == null) continue;
+      final title = (item['title'] as String?) ?? '';
+      if (title.isEmpty) continue;
+      final artist = (item['artist'] as String?) ?? '';
+      final key = (item['id'] as String?) ?? '$artist-$title';
 
       try {
-        final suggestions = await api.getPriceSuggestions(discogsId);
-        if (suggestions == null || suggestions.isEmpty) continue;
-        final lowest = _extractLowest(suggestions);
+        final lowest = await MarketValueService.instance.lowestPrice(
+          artist: artist,
+          title: title,
+          discogsId: (item['discogs_id'] as num?)?.toInt(),
+        );
         if (lowest == null) continue;
 
-        final key = '$discogsId';
         final prev = lastSeen[key];
         lastSeen[key] = lowest;
 
         if (lowest <= alertPrice && (prev == null || prev > alertPrice)) {
-          final title = (item['title'] as String?) ?? 'A wantlist item';
-          final artist = (item['artist'] as String?) ?? '';
           await _notify(
-            id: discogsId,
+            id: key.hashCode & 0x7fffffff,
             title: 'Price drop: $title',
             body: artist.isNotEmpty
                 ? '$artist · now \$${lowest.toStringAsFixed(2)} (target \$${alertPrice.toStringAsFixed(2)})'
@@ -90,20 +89,8 @@ class PriceAlertService {
 
     await prefs.setStringList(
       _lastSeenKey,
-      [for (final e in lastSeen.entries) '${e.key}:${e.value}'],
+      [for (final e in lastSeen.entries) '${e.key}=${e.value}'],
     );
-  }
-
-  double? _extractLowest(Map<String, dynamic> suggestions) {
-    // Discogs returns a map keyed by condition; pick the lowest "value".
-    double? best;
-    for (final v in suggestions.values) {
-      if (v is Map && v['value'] is num) {
-        final n = (v['value'] as num).toDouble();
-        if (best == null || n < best) best = n;
-      }
-    }
-    return best;
   }
 
   Future<void> _notify({

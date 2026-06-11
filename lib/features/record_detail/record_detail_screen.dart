@@ -14,6 +14,7 @@ import '../../core/database.dart';
 import '../../core/ebay_api.dart';
 import '../../core/genre_likes.dart';
 import '../../core/itunes_api.dart';
+import '../../core/market_value_service.dart';
 import '../../core/reverb_api.dart';
 import '../../core/spotify_api.dart';
 import '../../core/router.dart';
@@ -35,6 +36,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
   List<Map<String, dynamic>>? _cleanHistory;
   bool _isLoading = true;
   String? _error;
+  bool _loadingValue = false;
 
   // Editable fields
   String? _selectedColor;
@@ -82,6 +84,9 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
         _isNumbered = record['is_numbered'] == 1;
         _isLoading = false;
       });
+
+      // Fetch live market value in the background (won't block the screen).
+      _maybeFetchValue(record);
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -89,6 +94,26 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
         _isLoading = false;
       });
     }
+  }
+
+  /// Pull live market value (eBay + Reverb + Discogs if connected) when the
+  /// stored value is missing or stale, persist it, and update the card.
+  Future<void> _maybeFetchValue(Map<String, dynamic> record) async {
+    if (!MarketValueService.isStale(record)) return;
+    setState(() => _loadingValue = true);
+    final mv = await MarketValueService.instance.fetchAndStore(record);
+    if (!mounted) return;
+    setState(() {
+      _loadingValue = false;
+      if (mv != null && _record != null) {
+        _record = {
+          ..._record!,
+          'low_value': mv.low,
+          'median_value': mv.median,
+          'high_value': mv.high,
+        };
+      }
+    });
   }
 
   Future<void> _logSpin() async {
@@ -400,13 +425,33 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Market Value',
-            style: SpinnerTheme.nunito(
-              size: 13,
-              weight: FontWeight.w600,
-              color: SpinnerTheme.grey,
-            ),
+          Row(
+            children: [
+              Text(
+                'Market Value',
+                style: SpinnerTheme.nunito(
+                  size: 13,
+                  weight: FontWeight.w600,
+                  color: SpinnerTheme.grey,
+                ),
+              ),
+              if (_loadingValue) ...[
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 12,
+                  height: 12,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 1.6,
+                    valueColor: AlwaysStoppedAnimation(SpinnerTheme.accent),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'checking live prices',
+                  style: SpinnerTheme.nunito(size: 11, color: SpinnerTheme.grey),
+                ),
+              ],
+            ],
           ),
           const SizedBox(height: 12),
           Row(
