@@ -3,6 +3,14 @@ workflows:
     name: iOS TestFlight
     max_build_duration: 60
     instance_type: mac_mini_m2
+    # Auto-start a build on every push to main, so a code change always becomes
+    # a new TestFlight build without remembering to start one manually.
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
     integrations:
       app_store_connect: Ezgi
     environment:
