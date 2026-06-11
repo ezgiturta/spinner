@@ -1,8 +1,12 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 import 'package:go_router/go_router.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -11,6 +15,7 @@ import '../../core/discogs_api.dart';
 import '../../core/router.dart';
 import '../../core/subscription_gate.dart';
 import '../../core/theme.dart';
+import '../collection/sync_dialog.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -24,7 +29,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   bool _discogsConnected = false;
   String? _discogsUsername;
-  bool _soundcloudConnected = false;
 
   @override
   void initState() {
@@ -36,14 +40,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final discogsToken =
         await _secureStorage.read(key: 'discogs_access_token');
     final discogsUser = await _secureStorage.read(key: 'discogs_username');
-    final soundcloudToken =
-        await _secureStorage.read(key: 'soundcloud_access_token');
     if (!mounted) return;
     setState(() {
       _discogsConnected = discogsToken != null;
       _discogsUsername = discogsUser;
-      _soundcloudConnected = soundcloudToken != null;
     });
+  }
+
+  void _snack(String message, {bool error = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          style: SpinnerTheme.nunito(size: 14, color: SpinnerTheme.white),
+        ),
+        backgroundColor: error ? SpinnerTheme.red : SpinnerTheme.surface,
+      ),
+    );
   }
 
   Future<void> _disconnectDiscogs() async {
@@ -148,19 +162,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  Future<void> _connectSoundCloud() async {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Coming soon',
-          style: SpinnerTheme.nunito(size: 14, color: SpinnerTheme.white),
-        ),
-        backgroundColor: SpinnerTheme.surface,
-      ),
-    );
-  }
-
   Future<void> _restorePurchases() async {
     try {
       final info = await Purchases.restorePurchases();
@@ -191,63 +192,58 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  /// Import the user's Discogs collection. Requires a connected account; opens
+  /// the real folder-selection + progress sync dialog.
   Future<void> _syncCollection() async {
+    if (!_discogsConnected) {
+      _snack('Connect your Discogs account first.', error: true);
+      return;
+    }
+    await SyncDialog.show(context);
     if (!mounted) return;
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: SpinnerTheme.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: Text(
-          'Sync Collection',
-          style: SpinnerTheme.nunito(
-            size: 18,
-            weight: FontWeight.w700,
-            color: SpinnerTheme.white,
-          ),
-        ),
-        content: Text(
-          'This will sync your Discogs collection. Make sure you are connected to Discogs first.',
-          style: SpinnerTheme.nunito(size: 14, color: SpinnerTheme.greyLight),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(
-              'Cancel',
-              style: SpinnerTheme.nunito(size: 14, color: SpinnerTheme.grey),
-            ),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            style: FilledButton.styleFrom(
-              backgroundColor: SpinnerTheme.accent,
-              foregroundColor: SpinnerTheme.white,
-            ),
-            child: Text(
-              'Sync',
-              style: SpinnerTheme.nunito(
-                size: 14,
-                weight: FontWeight.w600,
-                color: SpinnerTheme.white,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+    // Reflect any freshly imported records on the next collection visit.
+    _snack('Collection synced from Discogs.');
   }
 
-  void _exportCSV() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Coming soon',
-          style: SpinnerTheme.nunito(size: 14, color: SpinnerTheme.white),
-        ),
-        backgroundColor: SpinnerTheme.surface,
-      ),
-    );
+  /// Export the collection as a CSV file via the system share sheet.
+  Future<void> _exportCSV() async {
+    try {
+      final records = await AppDatabase.getCollection();
+      if (records.isEmpty) {
+        _snack('Your collection is empty.', error: true);
+        return;
+      }
+      final csv = _buildCsv(records);
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/spinner_collection.csv');
+      await file.writeAsString(csv);
+      await Share.shareXFiles(
+        [XFile(file.path, mimeType: 'text/csv')],
+        subject: 'My Spinner collection',
+        text: '${records.length} records from my Spinner collection.',
+      );
+    } catch (e) {
+      _snack('Export failed: $e', error: true);
+    }
+  }
+
+  String _buildCsv(List<Map<String, dynamic>> records) {
+    String cell(Object? v) =>
+        '"${(v ?? '').toString().replaceAll('"', '""')}"';
+    final buf = StringBuffer()
+      ..writeln('Artist,Title,Year,Condition,Low,Median,High');
+    for (final r in records) {
+      buf.writeln([
+        cell(r['artist']),
+        cell(r['title']),
+        cell(r['year']),
+        cell(r['condition']),
+        cell(r['low_value']),
+        cell(r['median_value']),
+        cell(r['high_value']),
+      ].join(','));
+    }
+    return buf.toString();
   }
 
   Future<void> _openUrl(String url) async {
@@ -387,21 +383,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   )
                 : Icon(Icons.chevron_right, color: SpinnerTheme.grey),
             onTap: _discogsConnected ? _disconnectDiscogs : _connectDiscogs,
-          ),
-          _buildRow(
-            icon: Icons.cloud_outlined,
-            title: 'Connect SoundCloud',
-            trailing: _soundcloudConnected
-                ? Text(
-                    'Connected \u2713',
-                    style: SpinnerTheme.nunito(
-                      size: 13,
-                      weight: FontWeight.w600,
-                      color: SpinnerTheme.green,
-                    ),
-                  )
-                : Icon(Icons.chevron_right, color: SpinnerTheme.grey),
-            onTap: _soundcloudConnected ? null : _connectSoundCloud,
           ),
 
           const SizedBox(height: 24),
