@@ -23,6 +23,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
 
   bool _discogsConnected = false;
+  String? _discogsUsername;
   bool _soundcloudConnected = false;
 
   @override
@@ -34,12 +35,52 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _checkConnections() async {
     final discogsToken =
         await _secureStorage.read(key: 'discogs_access_token');
+    final discogsUser = await _secureStorage.read(key: 'discogs_username');
     final soundcloudToken =
         await _secureStorage.read(key: 'soundcloud_access_token');
     if (!mounted) return;
     setState(() {
       _discogsConnected = discogsToken != null;
+      _discogsUsername = discogsUser;
       _soundcloudConnected = soundcloudToken != null;
+    });
+  }
+
+  Future<void> _disconnectDiscogs() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: SpinnerTheme.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: Text(
+          'Disconnect Discogs?',
+          style: SpinnerTheme.nunito(
+              size: 16, weight: FontWeight.w600, color: SpinnerTheme.white),
+        ),
+        content: Text(
+          'Spinner will stop pulling Discogs price data. Your collection stays.',
+          style: SpinnerTheme.nunito(size: 14, color: SpinnerTheme.greyLight),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text('Cancel',
+                style: SpinnerTheme.nunito(size: 14, color: SpinnerTheme.grey)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text('Disconnect',
+                style: SpinnerTheme.nunito(size: 14, color: SpinnerTheme.red)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await DiscogsApi().logout();
+    if (!mounted) return;
+    setState(() {
+      _discogsConnected = false;
+      _discogsUsername = null;
     });
   }
 
@@ -87,11 +128,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
         oauthVerifier: verifier,
       );
       if (!mounted) return;
-      setState(() => _discogsConnected = true);
+      setState(() {
+        _discogsConnected = true;
+        _discogsUsername = api.username;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Connected to Discogs.',
+            api.username != null
+                ? 'Connected to Discogs as ${api.username}.'
+                : 'Connected to Discogs.',
             style: SpinnerTheme.nunito(size: 14, color: SpinnerTheme.white),
           ),
           backgroundColor: SpinnerTheme.green,
@@ -325,18 +371,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _buildSectionHeader('Account'),
           _buildRow(
             icon: Icons.album,
-            title: 'Connect Discogs',
+            title: _discogsConnected
+                ? (_discogsUsername != null
+                    ? 'Discogs: $_discogsUsername'
+                    : 'Discogs connected')
+                : 'Connect Discogs',
             trailing: _discogsConnected
                 ? Text(
-                    'Connected \u2713',
+                    'Disconnect',
                     style: SpinnerTheme.nunito(
                       size: 13,
                       weight: FontWeight.w600,
-                      color: SpinnerTheme.green,
+                      color: SpinnerTheme.grey,
                     ),
                   )
                 : Icon(Icons.chevron_right, color: SpinnerTheme.grey),
-            onTap: _discogsConnected ? null : _connectDiscogs,
+            onTap: _discogsConnected ? _disconnectDiscogs : _connectDiscogs,
           ),
           _buildRow(
             icon: Icons.cloud_outlined,

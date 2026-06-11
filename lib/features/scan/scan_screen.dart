@@ -150,7 +150,13 @@ class _ScanScreenState extends State<ScanScreen>
     if (_discogsKeysValid && _apiReady) {
       try {
         final searchResult = await _discogsApi.searchByText(query);
-        results = searchResult.results;
+        // Tag each Discogs hit with its release id (Discogs uses 'id') so the
+        // saved record carries discogs_id and can later pull Discogs price
+        // suggestions. iTunes results are left untagged (no discogs_id).
+        results = [
+          for (final r in searchResult.results)
+            {...r, 'discogs_id': (r['id'] as num?)?.toInt()},
+        ];
       } catch (_) {
         // Discogs failed; fall through to iTunes.
       }
@@ -228,6 +234,7 @@ class _ScanScreenState extends State<ScanScreen>
 
     await AppDatabase.insertRecord({
       'id': id,
+      'discogs_id': (result['discogs_id'] as num?)?.toInt(),
       'title': title,
       'artist': artist,
       'year': year,
