@@ -6,7 +6,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/claude_api.dart';
@@ -25,137 +24,73 @@ class ScanScreen extends StatefulWidget {
 }
 
 class _ScanScreenState extends State<ScanScreen>
-    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+    with SingleTickerProviderStateMixin {
   late final TabController _tabController;
   final TextEditingController _searchController = TextEditingController();
   late final DiscogsApi _discogsApi;
+  final ImagePicker _picker = ImagePicker();
 
-  MobileScannerController? _barcodeScannerController;
   bool _isSearching = false;
   String? _errorMessage;
-  bool _barcodeProcessing = false;
-  bool _cameraFailed = false;
   bool _apiReady = false;
+  // The cover camera auto-opens once when the screen first appears so the user
+  // doesn't have to tap twice. After that they use the on-screen buttons.
+  bool _autoLaunched = false;
 
   // Manual search inline results
   List<Map<String, dynamic>>? _searchResults;
 
+  static const _manualTab = 1;
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(_onTabChanged);
     _discogsApi = DiscogsApi();
     _initApi();
-    _initBarcodeScanner();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !_autoLaunched) {
+        _autoLaunched = true;
+        _captureCover(ImageSource.camera);
+      }
+    });
   }
 
   Future<void> _initApi() async {
     try {
       await _discogsApi.init();
-      if (mounted) {
-        setState(() => _apiReady = true);
-      }
+      if (mounted) setState(() => _apiReady = true);
     } catch (e) {
       if (mounted) {
-        setState(() {
-          _errorMessage = 'Failed to initialize Discogs API: $e';
-        });
+        setState(() => _errorMessage = 'Failed to initialize Discogs API: $e');
       }
-    }
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    // When the app resumes and we are on the barcode tab, restart the scanner.
-    if (state == AppLifecycleState.resumed && _tabController.index == 0) {
-      _initBarcodeScanner();
-    }
-    // Pause scanner when app is not visible.
-    if (state == AppLifecycleState.paused ||
-        state == AppLifecycleState.inactive) {
-      _disposeBarcodeScanner();
     }
   }
 
   void _onTabChanged() {
     if (!_tabController.indexIsChanging) return;
-    setState(() {
-      _errorMessage = null;
-    });
-    if (_tabController.index == 0) {
-      _initBarcodeScanner();
-    } else {
-      _disposeBarcodeScanner();
-    }
-  }
-
-  void _initBarcodeScanner() {
-    _disposeBarcodeScanner();
-    setState(() => _cameraFailed = false);
-    try {
-      _barcodeScannerController = MobileScannerController(
-        detectionSpeed: DetectionSpeed.normal,
-        facing: CameraFacing.back,
-        formats: [BarcodeFormat.ean13, BarcodeFormat.upcA, BarcodeFormat.ean8],
-      );
-    } catch (e) {
-      setState(() {
-        _cameraFailed = true;
-        _errorMessage = 'Could not start camera: $e';
-      });
-    }
-  }
-
-  void _disposeBarcodeScanner() {
-    try {
-      _barcodeScannerController?.dispose();
-    } catch (_) {
-      // Ignore disposal errors.
-    }
-    _barcodeScannerController = null;
+    setState(() => _errorMessage = null);
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
     _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
     _searchController.dispose();
-    _disposeBarcodeScanner();
     super.dispose();
   }
 
   // ---------------------------------------------------------------------------
-  // Barcode detection
+  // Cover scan — the primary flow. The user snaps the FRONT cover and the photo
+  // goes straight to Claude vision, which identifies the album from the artwork
+  // and any visible text. No barcode hardware, no OCR step: the multimodal model
+  // handles stylized fonts, logos, blurry and angled shots in one round-trip.
   // ---------------------------------------------------------------------------
 
-  Future<void> _onBarcodeDetected(BarcodeCapture capture) async {
-    if (_barcodeProcessing || _isSearching) return;
-    final barcode = capture.barcodes.firstOrNull;
-    if (barcode == null || barcode.rawValue == null) return;
-
-    final code = barcode.rawValue!.trim();
-    if (code.isEmpty) return;
-
-    _barcodeProcessing = true;
-    await _searchDiscogs(barcode: code);
-    _barcodeProcessing = false;
-  }
-
-  // ---------------------------------------------------------------------------
-  // Cover-photo fallback — when barcode fails (or isn't there), the user snaps
-  // the FRONT cover and we send the photo directly to Claude vision, which
-  // identifies the album from the artwork + any visible text. No OCR step:
-  // stylized fonts, logos, blurry shots, angled shots all worked badly with
-  // OCR; the multimodal model handles them in one round-trip.
-  // ---------------------------------------------------------------------------
-
-  Future<void> _runOcrFallback() async {
-    final picker = ImagePicker();
-    final XFile? photo = await picker.pickImage(
-      source: ImageSource.camera,
+  Future<void> _captureCover(ImageSource source) async {
+    final XFile? photo = await _picker.pickImage(
+      source: source,
       preferredCameraDevice: CameraDevice.rear,
       imageQuality: 85,
     );
@@ -167,8 +102,7 @@ class _ScanScreenState extends State<ScanScreen>
     });
 
     try {
-      final parsed =
-          await ClaudeApi.instance.identifyCover(File(photo.path));
+      final parsed = await ClaudeApi.instance.identifyCover(File(photo.path));
       final query = parsed.bestQuery;
 
       if (query == null || query.trim().isEmpty) {
@@ -176,7 +110,8 @@ class _ScanScreenState extends State<ScanScreen>
         setState(() {
           _isSearching = false;
           _errorMessage =
-              "Couldn't identify this cover. Try a clearer front-cover photo or use Manual Search.";
+              "Couldn't identify this cover. Try a clearer, straight-on photo "
+              'of the front cover, or use Manual Search.';
         });
         return;
       }
@@ -209,11 +144,10 @@ class _ScanScreenState extends State<ScanScreen>
   static const _discogsPlaceholderKey = 'YOUR_DISCOGS_CONSUMER_KEY';
 
   bool get _discogsKeysValid {
-    // If the consumer key is still a placeholder, Discogs won't work.
     return DiscogsApi.consumerKey != _discogsPlaceholderKey;
   }
 
-  Future<void> _searchDiscogs({String? barcode, String? query}) async {
+  Future<void> _searchDiscogs({required String query}) async {
     setState(() {
       _isSearching = true;
       _errorMessage = null;
@@ -226,12 +160,7 @@ class _ScanScreenState extends State<ScanScreen>
       // --- Try Discogs first (only if real keys are configured) ---
       if (_discogsKeysValid && _apiReady) {
         try {
-          final DiscogsSearchResult searchResult;
-          if (barcode != null) {
-            searchResult = await _discogsApi.searchByBarcode(barcode);
-          } else {
-            searchResult = await _discogsApi.searchByText(query!);
-          }
+          final searchResult = await _discogsApi.searchByText(query);
           results = searchResult.results;
         } catch (_) {
           // Discogs failed; fall through to iTunes.
@@ -239,7 +168,7 @@ class _ScanScreenState extends State<ScanScreen>
       }
 
       // --- Fallback to iTunes if Discogs returned nothing ---
-      if (results.isEmpty && query != null) {
+      if (results.isEmpty) {
         try {
           results = await ItunesApi.searchAlbums(query);
         } catch (e) {
@@ -255,26 +184,16 @@ class _ScanScreenState extends State<ScanScreen>
       if (!mounted) return;
 
       if (results.isEmpty) {
-        // Aggressive UX: when a barcode read returned nothing from Discogs,
-        // don't make the user tap another button — auto-launch the OCR
-        // fallback so they just snap the front cover once and we keep going.
-        if (barcode != null && _tabController.index == 0) {
-          setState(() {
-            _isSearching = false;
-            _errorMessage = 'Barcode not in Discogs. Snap the FRONT cover and I\'ll identify it.';
-          });
-          await _runOcrFallback();
-          return;
-        }
         setState(() {
-          _errorMessage = 'No results found. Try a different search.';
+          _errorMessage =
+              'No results found. Try a clearer cover photo or Manual Search.';
           _isSearching = false;
         });
         return;
       }
 
       // For manual search, show results inline.
-      if (query != null && _tabController.index == 2) {
+      if (_tabController.index == _manualTab) {
         setState(() {
           _searchResults = results;
           _isSearching = false;
@@ -292,16 +211,10 @@ class _ScanScreenState extends State<ScanScreen>
       }
     } catch (e) {
       if (!mounted) return;
-      setState(() {
-        _errorMessage = 'Search failed: $e';
-      });
+      setState(() => _errorMessage = 'Search failed: $e');
       _showSnackBar('Search failed: $e');
     } finally {
-      if (mounted) {
-        setState(() {
-          _isSearching = false;
-        });
-      }
+      if (mounted) setState(() => _isSearching = false);
     }
   }
 
@@ -413,8 +326,7 @@ class _ScanScreenState extends State<ScanScreen>
             color: SpinnerTheme.grey,
           ),
           tabs: const [
-            Tab(text: 'Barcode'),
-            Tab(text: 'Cover Art'),
+            Tab(text: 'Scan Cover'),
             Tab(text: 'Manual Search'),
           ],
         ),
@@ -429,297 +341,130 @@ class _ScanScreenState extends State<ScanScreen>
                   controller: _tabController,
                   physics: const NeverScrollableScrollPhysics(),
                   children: [
-                    _buildBarcodeTab(),
-                    _buildCoverArtTab(),
+                    _buildCoverScanTab(),
                     _buildManualSearchTab(),
                   ],
                 ),
               ),
             ],
           ),
-          if (_isSearching)
-            const Positioned.fill(child: _IdentifyingOverlay()),
+          if (_isSearching) const Positioned.fill(child: _IdentifyingOverlay()),
         ],
       ),
     );
   }
 
   Widget _buildErrorBanner() {
-    final isBarcodeMiss = _tabController.index == 0 &&
-        (_errorMessage?.startsWith('Barcode not in') ?? false);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       color: SpinnerTheme.red.withOpacity(0.15),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      child: Row(
         children: [
-          Row(
-            children: [
-              Icon(Icons.error_outline, color: SpinnerTheme.red, size: 20),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  _errorMessage!,
-                  style: SpinnerTheme.nunito(
-                    size: 13,
-                    weight: FontWeight.w500,
-                    color: SpinnerTheme.red,
-                  ),
-                ),
-              ),
-              GestureDetector(
-                onTap: () => setState(() => _errorMessage = null),
-                child: Icon(Icons.close, color: SpinnerTheme.red, size: 18),
-              ),
-            ],
-          ),
-          if (isBarcodeMiss) ...[
-            const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _isSearching ? null : _runOcrFallback,
-                icon: const Icon(Icons.photo_camera, size: 18),
-                label: const Text('Snap cover photo'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: SpinnerTheme.accent,
-                  foregroundColor: SpinnerTheme.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
+          Icon(Icons.error_outline, color: SpinnerTheme.red, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              _errorMessage!,
+              style: SpinnerTheme.nunito(
+                size: 13,
+                weight: FontWeight.w500,
+                color: SpinnerTheme.red,
               ),
             ),
-          ],
+          ),
+          GestureDetector(
+            onTap: () => setState(() => _errorMessage = null),
+            child: Icon(Icons.close, color: SpinnerTheme.red, size: 18),
+          ),
         ],
       ),
     );
   }
 
-
   // ---------------------------------------------------------------------------
-  // Barcode tab
+  // Cover scan tab — AI vision is the primary identify path.
   // ---------------------------------------------------------------------------
 
-  Widget _buildBarcodeTab() {
-    if (_cameraFailed || _barcodeScannerController == null) {
-      return _buildCameraUnavailable();
-    }
-
-    return Stack(
-      children: [
-        MobileScanner(
-          controller: _barcodeScannerController!,
-          onDetect: _onBarcodeDetected,
-          errorBuilder: (context, error, child) {
-            return _buildCameraError(error);
-          },
-        ),
-        // Scan overlay
-        Center(
-          child: Container(
-            width: 280,
-            height: 160,
-            decoration: BoxDecoration(
-              border: Border.all(color: SpinnerTheme.accent, width: 2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        ),
-        // Instruction label
-        Positioned(
-          bottom: 48,
-          left: 0,
-          right: 0,
-          child: Center(
-            child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+  Widget _buildCoverScanTab() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 120,
+              height: 120,
               decoration: BoxDecoration(
-                color: SpinnerTheme.surface.withOpacity(0.85),
-                borderRadius: BorderRadius.circular(20),
+                color: SpinnerTheme.accent.withOpacity(0.12),
+                shape: BoxShape.circle,
               ),
-              child: Text(
-                'Align barcode within the frame',
-                style: SpinnerTheme.nunito(
-                  size: 14,
-                  weight: FontWeight.w500,
-                  color: SpinnerTheme.white,
-                ),
-              ),
+              child: Icon(Icons.photo_camera_rounded,
+                  size: 56, color: SpinnerTheme.accent),
             ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCameraUnavailable() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.camera_alt_outlined,
-                size: 64, color: SpinnerTheme.grey),
-            const SizedBox(height: 16),
+            const SizedBox(height: 28),
             Text(
-              'Camera unavailable',
-              style: SpinnerTheme.nunito(
-                size: 16,
-                weight: FontWeight.w600,
-                color: SpinnerTheme.white,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Please grant camera permission in your device settings and try again.',
+              'Snap the cover',
               textAlign: TextAlign.center,
               style: SpinnerTheme.nunito(
-                size: 13,
-                weight: FontWeight.w400,
-                color: SpinnerTheme.grey,
-              ),
-            ),
-            const SizedBox(height: 24),
-            OutlinedButton(
-              onPressed: _initBarcodeScanner,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: SpinnerTheme.accent,
-                side: BorderSide(color: SpinnerTheme.accent),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: Text(
-                'Retry',
-                style: SpinnerTheme.nunito(
-                  size: 14,
-                  weight: FontWeight.w600,
-                  color: SpinnerTheme.accent,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCameraError(MobileScannerException error) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.camera_alt_outlined,
-                size: 64, color: SpinnerTheme.grey),
-            const SizedBox(height: 16),
-            Text(
-              'Camera unavailable',
-              style: SpinnerTheme.nunito(
-                size: 16,
-                weight: FontWeight.w600,
-                color: SpinnerTheme.white,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              error.errorDetails?.message ??
-                  'Please grant camera permission in Settings and try again.',
-              textAlign: TextAlign.center,
-              style: SpinnerTheme.nunito(
-                size: 13,
-                weight: FontWeight.w400,
-                color: SpinnerTheme.grey,
-              ),
-            ),
-            const SizedBox(height: 24),
-            OutlinedButton(
-              onPressed: _initBarcodeScanner,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: SpinnerTheme.accent,
-                side: BorderSide(color: SpinnerTheme.accent),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: Text(
-                'Retry',
-                style: SpinnerTheme.nunito(
-                  size: 14,
-                  weight: FontWeight.w600,
-                  color: SpinnerTheme.accent,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // Cover Art tab (placeholder)
-  // ---------------------------------------------------------------------------
-
-  Widget _buildCoverArtTab() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.album_outlined, size: 80, color: SpinnerTheme.grey),
-            const SizedBox(height: 24),
-            Text(
-              'Cover Art Recognition',
-              style: SpinnerTheme.nunito(
-                size: 20,
-                weight: FontWeight.w700,
+                size: 24,
+                weight: FontWeight.w800,
                 color: SpinnerTheme.white,
               ),
             ),
             const SizedBox(height: 12),
             Text(
-              'Coming soon! This feature will use image recognition to '
-              'identify albums from cover photos.',
+              'Take a straight-on photo of the front cover and AI identifies the '
+              'exact record in seconds.',
               textAlign: TextAlign.center,
               style: SpinnerTheme.nunito(
-                size: 14,
+                size: 15,
                 weight: FontWeight.w400,
                 color: SpinnerTheme.grey,
+                height: 1.5,
               ),
             ),
-            const SizedBox(height: 24),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              decoration: BoxDecoration(
-                color: SpinnerTheme.accent.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: SpinnerTheme.accent.withOpacity(0.3),
+            const SizedBox(height: 32),
+            SizedBox(
+              width: double.infinity,
+              height: 54,
+              child: ElevatedButton.icon(
+                onPressed: _isSearching
+                    ? null
+                    : () => _captureCover(ImageSource.camera),
+                icon: const Icon(Icons.photo_camera_rounded, size: 20),
+                label: Text(
+                  'Take cover photo',
+                  style: SpinnerTheme.nunito(
+                    size: 16,
+                    weight: FontWeight.w700,
+                    color: SpinnerTheme.white,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: SpinnerTheme.accent,
+                  foregroundColor: SpinnerTheme.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                 ),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.info_outline,
-                      size: 18, color: SpinnerTheme.accent),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Use Manual Search in the meantime',
-                    style: SpinnerTheme.nunito(
-                      size: 13,
-                      weight: FontWeight.w500,
-                      color: SpinnerTheme.accent,
-                    ),
-                  ),
-                ],
+            ),
+            const SizedBox(height: 12),
+            TextButton.icon(
+              onPressed: _isSearching
+                  ? null
+                  : () => _captureCover(ImageSource.gallery),
+              icon: Icon(Icons.photo_library_outlined,
+                  size: 18, color: SpinnerTheme.grey),
+              label: Text(
+                'Choose from library',
+                style: SpinnerTheme.nunito(
+                  size: 14,
+                  weight: FontWeight.w600,
+                  color: SpinnerTheme.grey,
+                ),
               ),
             ),
           ],
@@ -827,8 +572,7 @@ class _ScanScreenState extends State<ScanScreen>
                       height: 22,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        valueColor:
-                            AlwaysStoppedAnimation(SpinnerTheme.white),
+                        valueColor: AlwaysStoppedAnimation(SpinnerTheme.white),
                       ),
                     )
                   : Text(
@@ -843,8 +587,7 @@ class _ScanScreenState extends State<ScanScreen>
           ),
           const SizedBox(height: 16),
           // Inline search results
-          if (_searchResults != null)
-            Expanded(child: _buildInlineResults()),
+          if (_searchResults != null) Expanded(child: _buildInlineResults()),
         ],
       ),
     );
@@ -923,7 +666,7 @@ class _ScanScreenState extends State<ScanScreen>
           ),
           subtitle: Text(
             [if (artist.isNotEmpty) artist, if (year.isNotEmpty) year]
-                .join(' \u2022 '),
+                .join(' • '),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: SpinnerTheme.nunito(
@@ -1015,9 +758,7 @@ class _IdentifyingOverlayState extends State<_IdentifyingOverlay> {
                     style: SpinnerTheme.nunito(
                       size: 15,
                       weight: FontWeight.w600,
-                      color: i <= _step
-                          ? SpinnerTheme.white
-                          : SpinnerTheme.grey,
+                      color: i <= _step ? SpinnerTheme.white : SpinnerTheme.grey,
                     ),
                   ),
                 ],
@@ -1060,5 +801,3 @@ class _IdentifyingOverlayState extends State<_IdentifyingOverlay> {
     );
   }
 }
-
-

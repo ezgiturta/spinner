@@ -306,7 +306,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           child: Column(
             children: [
-              const Icon(Icons.qr_code_scanner, color: SpinnerTheme.white, size: 48),
+              const Icon(Icons.photo_camera_rounded, color: SpinnerTheme.white, size: 48),
               const SizedBox(height: 16),
               Text(
                 'Scan Your First Vinyl',
@@ -318,7 +318,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 6),
               Text(
-                'Scan a barcode to see its value and start building your collection.',
+                'Snap a photo of the cover to see its value and start building your collection.',
                 textAlign: TextAlign.center,
                 style: SpinnerTheme.nunito(
                   size: 14,

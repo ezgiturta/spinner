@@ -179,12 +179,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 onPageChanged: _onPageChanged,
                 children: [
                   _buildShowcase(
-                    icon: Icons.qr_code_scanner_rounded,
+                    icon: Icons.photo_camera_rounded,
                     title: 'Scan any record',
                     body:
-                        'Point at the barcode or snap the cover. Spinner IDs '
-                        'the exact pressing and pulls its market value in '
-                        'seconds.',
+                        'Snap a photo of the cover and Spinner IDs the exact '
+                        'pressing, then pulls its market value in seconds.',
                   ),
                   _buildShowcase(
                     icon: Icons.album_rounded,
@@ -261,9 +260,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 32),
+      // Fixed top offset + start alignment so the icon and title sit at the
+      // SAME vertical position on every showcase page, regardless of how many
+      // lines the body text wraps to. (Center alignment made each title land at
+      // a different height.)
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.start,
         children: [
+          const SizedBox(height: 64),
           Container(
             width: 108,
             height: 108,

@@ -84,14 +84,17 @@ class PaywallContent extends StatelessWidget {
                 color: SpinnerTheme.white,
               ),
             ),
+            // Flexible middle. Wrapped in a scroll view that only scrolls if it
+            // genuinely runs out of room on a small screen — so the social
+            // proof can NEVER overflow and overlap the plan cards below.
             Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     _buildFeatures(),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
                     _buildSocialProof(),
                   ],
                 ),
@@ -153,7 +156,7 @@ class PaywallContent extends StatelessWidget {
   // ── Hero: synthwave sunset + vinyl ──
   Widget _buildHero() {
     return SizedBox(
-      height: 200,
+      height: 176,
       width: double.infinity,
       child: Stack(
         fit: StackFit.expand,
