@@ -74,12 +74,12 @@ class PaywallContent extends StatelessWidget {
         Column(
           children: [
             _buildHero(),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Text(
               'Join Spinner Pro',
               textAlign: TextAlign.center,
               style: SpinnerTheme.nunito(
-                size: 27,
+                size: 24,
                 weight: FontWeight.w800,
                 color: SpinnerTheme.white,
               ),
@@ -152,7 +152,7 @@ class PaywallContent extends StatelessWidget {
   // ── Hero: synthwave sunset + vinyl ──
   Widget _buildHero() {
     return SizedBox(
-      height: 176,
+      height: 132,
       width: double.infinity,
       child: Stack(
         fit: StackFit.expand,
@@ -249,21 +249,21 @@ class PaywallContent extends StatelessWidget {
       ['✨', 'Wishlist price drop alerts'],
     ];
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 28),
+      padding: const EdgeInsets.symmetric(horizontal: 26),
       child: Column(
         children: [
           for (final f in feats)
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
+              padding: const EdgeInsets.symmetric(vertical: 6),
               child: Row(
                 children: [
-                  Text(f[0], style: const TextStyle(fontSize: 22)),
+                  Text(f[0], style: const TextStyle(fontSize: 20)),
                   const SizedBox(width: 14),
                   Expanded(
                     child: Text(
                       f[1],
                       style: SpinnerTheme.nunito(
-                        size: 16,
+                        size: 15,
                         weight: FontWeight.w700,
                         color: SpinnerTheme.white,
                       ),
