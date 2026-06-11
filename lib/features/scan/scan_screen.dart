@@ -40,8 +40,6 @@ class _ScanScreenState extends State<ScanScreen>
   // Manual search inline results
   List<Map<String, dynamic>>? _searchResults;
 
-  static const _manualTab = 1;
-
   @override
   void initState() {
     super.initState();
@@ -101,29 +99,70 @@ class _ScanScreenState extends State<ScanScreen>
       _errorMessage = null;
     });
 
+    // Run identify + search first, but DON'T reveal anything yet. Whatever the
+    // outcome — a match, no match, or an error — the paywall must appear before
+    // the user sees the result. Paying is what unlocks the reveal.
+    List<Map<String, dynamic>> results = [];
+    String? failure;
     try {
       final parsed = await ClaudeApi.instance.identifyCover(File(photo.path));
       final query = parsed.bestQuery;
-
       if (query == null || query.trim().isEmpty) {
-        if (!mounted) return;
-        setState(() {
-          _isSearching = false;
-          _errorMessage =
-              "Couldn't identify this cover. Try a clearer, straight-on photo "
-              'of the front cover, or use Manual Search.';
-        });
-        return;
+        failure = "Couldn't identify this cover. Try a clearer, straight-on "
+            'photo of the front cover, or use Manual Search.';
+      } else {
+        results = await _runSearch(query);
+        if (results.isEmpty) {
+          failure = 'No match found for this cover. Try a clearer photo or '
+              'use Manual Search.';
+        }
       }
-
-      await _searchDiscogs(query: query);
     } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _isSearching = false;
-        _errorMessage = 'Cover recognition failed: $e';
-      });
+      failure = 'Cover recognition failed: $e';
     }
+
+    if (!mounted) return;
+    setState(() => _isSearching = false);
+
+    // Paywall gate — regardless of outcome, before revealing anything.
+    if (!await SubscriptionGate.requirePro(context)) return;
+    if (!mounted) return;
+
+    // Paid (or already Pro): now reveal the outcome.
+    if (failure != null) {
+      setState(() => _errorMessage = failure);
+      return;
+    }
+    if (results.length == 1) {
+      await _saveAndNavigate(results.first);
+    } else {
+      final selected = await _showResultsSheet(results);
+      if (selected != null && mounted) {
+        await _saveAndNavigate(selected);
+      }
+    }
+  }
+
+  /// Raw search: Discogs first, then iTunes. Returns whatever it finds (may be
+  /// empty); swallows errors so the caller can treat "nothing found" uniformly.
+  Future<List<Map<String, dynamic>>> _runSearch(String query) async {
+    List<Map<String, dynamic>> results = [];
+    if (_discogsKeysValid && _apiReady) {
+      try {
+        final searchResult = await _discogsApi.searchByText(query);
+        results = searchResult.results;
+      } catch (_) {
+        // Discogs failed; fall through to iTunes.
+      }
+    }
+    if (results.isEmpty) {
+      try {
+        results = await ItunesApi.searchAlbums(query);
+      } catch (_) {
+        // iTunes failed too; return empty.
+      }
+    }
+    return results;
   }
 
   // ---------------------------------------------------------------------------
@@ -147,6 +186,8 @@ class _ScanScreenState extends State<ScanScreen>
     return DiscogsApi.consumerKey != _discogsPlaceholderKey;
   }
 
+  // Manual search shows its results inline (the user picks one, and the
+  // paywall fires on tap, via _saveAndNavigate).
   Future<void> _searchDiscogs({required String query}) async {
     setState(() {
       _isSearching = true;
@@ -154,68 +195,17 @@ class _ScanScreenState extends State<ScanScreen>
       _searchResults = null;
     });
 
-    try {
-      List<Map<String, dynamic>> results = [];
+    final results = await _runSearch(query);
+    if (!mounted) return;
 
-      // --- Try Discogs first (only if real keys are configured) ---
-      if (_discogsKeysValid && _apiReady) {
-        try {
-          final searchResult = await _discogsApi.searchByText(query);
-          results = searchResult.results;
-        } catch (_) {
-          // Discogs failed; fall through to iTunes.
-        }
-      }
-
-      // --- Fallback to iTunes if Discogs returned nothing ---
+    setState(() {
+      _isSearching = false;
       if (results.isEmpty) {
-        try {
-          results = await ItunesApi.searchAlbums(query);
-        } catch (e) {
-          if (!mounted) return;
-          setState(() {
-            _errorMessage = 'Search failed: $e';
-            _isSearching = false;
-          });
-          return;
-        }
-      }
-
-      if (!mounted) return;
-
-      if (results.isEmpty) {
-        setState(() {
-          _errorMessage =
-              'No results found. Try a clearer cover photo or Manual Search.';
-          _isSearching = false;
-        });
-        return;
-      }
-
-      // For manual search, show results inline.
-      if (_tabController.index == _manualTab) {
-        setState(() {
-          _searchResults = results;
-          _isSearching = false;
-        });
-        return;
-      }
-
-      if (results.length == 1) {
-        await _saveAndNavigate(results.first);
+        _errorMessage = 'No results found. Try a different search.';
       } else {
-        final selected = await _showResultsSheet(results);
-        if (selected != null && mounted) {
-          await _saveAndNavigate(selected);
-        }
+        _searchResults = results;
       }
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _errorMessage = 'Search failed: $e');
-      _showSnackBar('Search failed: $e');
-    } finally {
-      if (mounted) setState(() => _isSearching = false);
-    }
+    });
   }
 
   /// Save a search result to the local database and navigate to its detail page.
@@ -256,25 +246,6 @@ class _ScanScreenState extends State<ScanScreen>
 
     if (!mounted) return;
     context.push('/record/$id');
-  }
-
-  void _showSnackBar(String message) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          message,
-          style: SpinnerTheme.nunito(
-            size: 13,
-            weight: FontWeight.w500,
-            color: SpinnerTheme.white,
-          ),
-        ),
-        backgroundColor: SpinnerTheme.surface,
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 4),
-      ),
-    );
   }
 
   Future<Map<String, dynamic>?> _showResultsSheet(

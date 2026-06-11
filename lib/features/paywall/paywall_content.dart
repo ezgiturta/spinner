@@ -84,24 +84,20 @@ class PaywallContent extends StatelessWidget {
                 color: SpinnerTheme.white,
               ),
             ),
-            // Flexible middle. Wrapped in a scroll view that only scrolls if it
-            // genuinely runs out of room on a small screen — so the social
-            // proof can NEVER overflow and overlap the plan cards below.
+            // ONLY the feature list flexes/scrolls. Everything below it
+            // (social proof, plan cards, CTA) is pinned in normal flow, so the
+            // 'Join thousands' badge can never overflow onto the plan cards.
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _buildFeatures(),
-                    const SizedBox(height: 12),
-                    _buildSocialProof(),
-                  ],
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: _buildFeatures(),
                 ),
               ),
             ),
-            // Plan cards live OUTSIDE the flexible region so both (including
-            // Weekly) are always fully visible, no scrolling, never clipped.
+            _buildSocialProof(),
+            // Plan cards: pinned, always fully visible (both Annual + Weekly),
+            // never clipped.
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 2, 20, 0),
               child: Column(

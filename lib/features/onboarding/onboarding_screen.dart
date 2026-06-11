@@ -223,9 +223,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
       child: Row(
         children: [
+          // Fixed height so the top bar is the SAME height on every page. With
+          // no height the row collapsed to the progress bar (~6px) on the first
+          // showcase and jumped to ~20px once the back arrow appeared, pushing
+          // all content down. Also: no back arrow on the showcase pages.
           SizedBox(
             width: 28,
-            child: (_currentPage > 0 && _currentPage != _loadingPage)
+            height: 28,
+            child: (_currentPage > 2 && _currentPage != _loadingPage)
                 ? GestureDetector(
                     onTap: _previousPage,
                     child: const Icon(Icons.arrow_back_ios_new,
@@ -515,8 +520,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   // ── Rating ──────────────────────────────────────────────────────────
 
   Widget _buildRating() {
-    // Fill the full page height and distribute the blocks evenly so the screen
-    // never leaves a dead empty gap at the bottom.
+    // Center the whole block vertically (balanced top/bottom space, no dead
+    // gap) with tight, controlled spacing between groups — only a small gap
+    // between the stats and the first review.
     return LayoutBuilder(
       builder: (context, constraints) {
         return SingleChildScrollView(
@@ -524,7 +530,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           child: ConstrainedBox(
             constraints: BoxConstraints(minHeight: constraints.maxHeight - 40),
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -537,6 +543,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     ),
                   ),
                 ),
+                const SizedBox(height: 28),
                 Column(
                   children: [
                     Text(
@@ -586,6 +593,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 24),
                 Column(
                   children: [
                     _testimonial(
