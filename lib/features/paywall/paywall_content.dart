@@ -87,11 +87,17 @@ class PaywallContent extends StatelessWidget {
             // ONLY the feature list flexes/scrolls. Everything below it
             // (social proof, plan cards, CTA) is pinned in normal flow, so the
             // 'Join thousands' badge can never overflow onto the plan cards.
+            // Center the feature list in the flexible space so the gap is
+            // shared above (under the title) and below (toward the plans)
+            // instead of dumping it all between the features and the plans.
+            // Scrolls only if it can't fit on a very small screen.
             Expanded(
-              child: SingleChildScrollView(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: _buildFeatures(),
+              child: Center(
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: _buildFeatures(),
+                  ),
                 ),
               ),
             ),
@@ -254,16 +260,16 @@ class PaywallContent extends StatelessWidget {
         children: [
           for (final f in feats)
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
+              padding: const EdgeInsets.symmetric(vertical: 11),
               child: Row(
                 children: [
-                  Text(f[0], style: const TextStyle(fontSize: 20)),
+                  Text(f[0], style: const TextStyle(fontSize: 22)),
                   const SizedBox(width: 14),
                   Expanded(
                     child: Text(
                       f[1],
                       style: SpinnerTheme.nunito(
-                        size: 15,
+                        size: 16,
                         weight: FontWeight.w700,
                         color: SpinnerTheme.white,
                       ),
