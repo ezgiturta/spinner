@@ -90,7 +90,12 @@ class _ScanScreenState extends State<ScanScreen>
     final XFile? photo = await _picker.pickImage(
       source: source,
       preferredCameraDevice: CameraDevice.rear,
-      imageQuality: 85,
+      // Downscale before upload. A full-res iPhone photo (12MP, several MB)
+      // base64-encodes past the proxy's body limit and returns HTTP 413.
+      // ~1024px is plenty for AI cover recognition.
+      maxWidth: 1024,
+      maxHeight: 1024,
+      imageQuality: 70,
     );
     if (photo == null) return;
 

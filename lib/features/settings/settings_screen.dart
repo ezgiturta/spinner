@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 import 'package:go_router/go_router.dart';
@@ -157,8 +158,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
           backgroundColor: SpinnerTheme.green,
         ),
       );
+    } on PlatformException catch (e) {
+      // flutter_web_auth_2 throws this when the user cancels/dismisses the
+      // in-app browser — not a real failure, so stay quiet.
+      if (e.code == 'CANCELED' || e.code == 'CANCELLED') return;
+      showError('Discogs sign-in was cancelled.');
     } catch (e) {
-      showError('Discogs connection failed. Please try again.');
+      // Surface the real error so we can tell apart a bad key (HTTP 401), a
+      // callback mismatch, or a network problem.
+      showError('Discogs failed: $e');
     }
   }
 

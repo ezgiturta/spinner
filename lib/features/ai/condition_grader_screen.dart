@@ -47,9 +47,11 @@ class _ConditionGraderScreenState extends State<ConditionGraderScreen> {
     try {
       final XFile? file = await _picker.pickImage(
         source: src,
-        maxWidth: 1600,
-        maxHeight: 1600,
-        imageQuality: 85,
+        // Keep uploads under the proxy's body limit (two photos go up at once
+        // for grading). ~1280px is enough for the AI to grade condition.
+        maxWidth: 1280,
+        maxHeight: 1280,
+        imageQuality: 80,
       );
       if (file == null) return;
       setState(() {
