@@ -74,30 +74,25 @@ class PaywallContent extends StatelessWidget {
         Column(
           children: [
             _buildHero(),
-            const SizedBox(height: 6),
+            const SizedBox(height: 14),
             Text(
               'Join Spinner Pro',
               textAlign: TextAlign.center,
               style: SpinnerTheme.nunito(
-                size: 24,
+                size: 27,
                 weight: FontWeight.w800,
                 color: SpinnerTheme.white,
               ),
             ),
-            // ONLY the feature list flexes/scrolls. Everything below it
-            // (social proof, plan cards, CTA) is pinned in normal flow, so the
-            // 'Join thousands' badge can never overflow onto the plan cards.
-            // Center the feature list in the flexible space so the gap is
-            // shared above (under the title) and below (toward the plans)
-            // instead of dumping it all between the features and the plans.
-            // Scrolls only if it can't fit on a very small screen.
+            const SizedBox(height: 4),
+            // Features sit just under the title (Cardly layout). The flexible
+            // space falls below them, before the social proof + plans. Scrolls
+            // only if it can't fit on a very small screen.
             Expanded(
-              child: Center(
-                child: SingleChildScrollView(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: _buildFeatures(),
-                  ),
+              child: SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  child: _buildFeatures(),
                 ),
               ),
             ),
@@ -158,7 +153,7 @@ class PaywallContent extends StatelessWidget {
   // ── Hero: synthwave sunset + vinyl ──
   Widget _buildHero() {
     return SizedBox(
-      height: 132,
+      height: 210,
       width: double.infinity,
       child: Stack(
         fit: StackFit.expand,
@@ -368,7 +363,7 @@ class PaywallContent extends StatelessWidget {
             width: double.infinity,
             height: 56,
             child: Material(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(28),
               clipBehavior: Clip.antiAlias,
               child: Ink(
                 decoration: const BoxDecoration(
@@ -544,7 +539,7 @@ class _PlanCard extends StatelessWidget {
                   width: 24,
                   height: 24,
                   decoration: BoxDecoration(
-                    shape: BoxShape.circle,
+                    borderRadius: BorderRadius.circular(7),
                     color: selected ? SpinnerTheme.accent : Colors.transparent,
                     border: Border.all(
                       color: selected ? SpinnerTheme.accent : SpinnerTheme.grey,
