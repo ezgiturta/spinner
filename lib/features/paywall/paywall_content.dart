@@ -73,7 +73,7 @@ class PaywallContent extends StatelessWidget {
       children: [
         Column(
           children: [
-            _buildHero(),
+            _buildHero(context),
             const SizedBox(height: 14),
             Text(
               'Join Spinner Pro',
@@ -151,9 +151,14 @@ class PaywallContent extends StatelessWidget {
   }
 
   // ── Hero: synthwave sunset + vinyl ──
-  Widget _buildHero() {
+  Widget _buildHero(BuildContext context) {
+    // Scale with the screen so the hero fills the top ~36% like the reference,
+    // instead of a small fixed band. Clamped so it stays sane on tiny/large
+    // devices.
+    final height =
+        (MediaQuery.of(context).size.height * 0.36).clamp(240.0, 360.0);
     return SizedBox(
-      height: 210,
+      height: height,
       width: double.infinity,
       child: Stack(
         fit: StackFit.expand,
@@ -203,7 +208,7 @@ class PaywallContent extends StatelessWidget {
             right: 26,
             child: Transform.rotate(angle: 0.32, child: _floatingSquare(58)),
           ),
-          const Center(child: _VinylDisc(size: 132)),
+          const Center(child: _VinylDisc(size: 168)),
           Positioned(
             left: 0,
             right: 0,
