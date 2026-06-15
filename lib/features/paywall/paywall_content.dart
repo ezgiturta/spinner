@@ -248,7 +248,7 @@ class PaywallContent extends StatelessWidget {
   // ── Features ──
   Widget _buildFeatures() {
     const feats = <List<String>>[
-      ['🎯', 'Unlimited record scanning'],
+      ['🎯', 'Unlimited vinyl scans'],
       ['💎', 'Live eBay & Reverb market values'],
       ['⚡', 'AI condition grading from a photo'],
       ['🔥', 'Album stories & mood picks'],
@@ -297,7 +297,7 @@ class PaywallContent extends StatelessWidget {
             TextSpan(
               children: [
                 TextSpan(
-                  text: 'Join thousands ',
+                  text: '2,847 people ',
                   style: SpinnerTheme.nunito(
                     size: 13,
                     weight: FontWeight.w800,
@@ -305,10 +305,18 @@ class PaywallContent extends StatelessWidget {
                   ),
                 ),
                 TextSpan(
-                  text: 'of vinyl collectors',
+                  text: 'joined this plan today',
                   style: SpinnerTheme.nunito(
                     size: 13,
                     weight: FontWeight.w600,
+                    color: Colors.black,
+                  ),
+                ),
+                TextSpan(
+                  text: '!',
+                  style: SpinnerTheme.nunito(
+                    size: 13,
+                    weight: FontWeight.w800,
                     color: Colors.black,
                   ),
                 ),

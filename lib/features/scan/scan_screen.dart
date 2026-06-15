@@ -33,9 +33,6 @@ class _ScanScreenState extends State<ScanScreen>
   bool _isSearching = false;
   String? _errorMessage;
   bool _apiReady = false;
-  // The cover camera auto-opens once when the screen first appears so the user
-  // doesn't have to tap twice. After that they use the on-screen buttons.
-  bool _autoLaunched = false;
 
   // Manual search inline results
   List<Map<String, dynamic>>? _searchResults;
@@ -47,12 +44,9 @@ class _ScanScreenState extends State<ScanScreen>
     _tabController.addListener(_onTabChanged);
     _discogsApi = DiscogsApi();
     _initApi();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && !_autoLaunched) {
-        _autoLaunched = true;
-        _captureCover(ImageSource.camera);
-      }
-    });
+    // No auto-open: the "Snap the cover" screen shows Take photo + Choose from
+    // library side by side, so picking from the gallery is one tap (no need to
+    // dismiss the camera first).
   }
 
   Future<void> _initApi() async {
