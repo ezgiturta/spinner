@@ -115,8 +115,9 @@ class _ScanScreenState extends State<ScanScreen>
           failure = 'No exact match. Refine the search below.';
         }
       }
-    } catch (e) {
-      failure = 'Cover recognition failed: $e';
+    } catch (_) {
+      failure = "Couldn't reach the server. Check your connection and "
+          'try again, or search by name below.';
     }
 
     if (!mounted) return;
@@ -268,7 +269,7 @@ class _ScanScreenState extends State<ScanScreen>
       if (!mounted) return;
       setState(() {
         _isSearching = false;
-        _errorMessage = 'Could not open this record: $e';
+        _errorMessage = 'Could not open this record. Please try again.';
       });
     }
   }
@@ -362,6 +363,8 @@ class _ScanScreenState extends State<ScanScreen>
           Expanded(
             child: Text(
               _errorMessage!,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
               style: SpinnerTheme.nunito(
                 size: 13,
                 weight: FontWeight.w500,

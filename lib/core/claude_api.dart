@@ -15,9 +15,9 @@ class ClaudeApi {
   static const _baseUrl = 'https://kiraapp-nu.vercel.app/api/spinner';
 
   final Dio _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 20),
-    receiveTimeout: const Duration(seconds: 60),
-    sendTimeout: const Duration(seconds: 30),
+    connectTimeout: const Duration(seconds: 15),
+    receiveTimeout: const Duration(seconds: 25),
+    sendTimeout: const Duration(seconds: 25),
     headers: {'Content-Type': 'application/json'},
   ));
 

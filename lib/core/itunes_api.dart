@@ -2,7 +2,10 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 
 class ItunesApi {
-  static final _dio = Dio();
+  static final _dio = Dio(BaseOptions(
+    connectTimeout: const Duration(seconds: 12),
+    receiveTimeout: const Duration(seconds: 15),
+  ));
 
   static dynamic _parseData(dynamic data) {
     if (data is String) return jsonDecode(data);

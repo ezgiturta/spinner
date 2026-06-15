@@ -85,15 +85,9 @@ class PaywallContent extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 4),
-            // Features live in a scroll view clamped to the flexible space, so
-            // they can NEVER overflow onto the social proof / plan cards (that
-            // was the 'overlapping text'). Sized to fit one screen; scrolls
-            // only on a very small device.
-            Expanded(
-              child: Center(
-                child: SingleChildScrollView(child: _buildFeatures()),
-              ),
-            ),
+            // Features fill the flexible space, evenly spread — NO scroll. Hero
+            // and rows are sized so the whole page fits one screen.
+            Expanded(child: _buildFeatures()),
             _buildSocialProof(),
             // Plan cards: pinned, always fully visible (both Annual + Weekly),
             // never clipped.
@@ -255,6 +249,7 @@ class PaywallContent extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 26),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           for (final f in feats)
             Padding(
