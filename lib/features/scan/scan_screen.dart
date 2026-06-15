@@ -230,36 +230,47 @@ class _ScanScreenState extends State<ScanScreen>
     if (!await SubscriptionGate.requirePro(context)) return;
     if (!mounted) return;
 
-    final id = const Uuid().v4();
-    final title = result['title'] as String? ?? 'Unknown';
-    final artist = result['artist'] as String? ?? 'Unknown Artist';
-    final coverUrl = result['cover_url'] as String? ??
-        result['cover_image'] as String? ??
-        result['thumb'] as String? ??
-        '';
-    final year = int.tryParse(result['year']?.toString() ?? '');
+    setState(() => _isSearching = true);
+    try {
+      final id = const Uuid().v4();
+      final title = result['title'] as String? ?? 'Unknown';
+      final artist = result['artist'] as String? ?? 'Unknown Artist';
+      final coverUrl = result['cover_url'] as String? ??
+          result['cover_image'] as String? ??
+          result['thumb'] as String? ??
+          '';
+      final year = int.tryParse(result['year']?.toString() ?? '');
 
-    await AppDatabase.insertRecord({
-      'id': id,
-      'discogs_id': (result['discogs_id'] as num?)?.toInt(),
-      'title': title,
-      'artist': artist,
-      'year': year,
-      'cover_url': coverUrl,
-      // Discogs returns 'genre' as a list of strings; flatten to comma list.
-      'genre': () {
-        final g = result['genre'];
-        if (g is List) return g.cast<String>().join(', ');
-        if (g is String) return g;
-        return '';
-      }(),
-      'in_collection': 1,
-      'in_wantlist': 0,
-      'synced_at': DateTime.now().toIso8601String(),
-    });
+      await AppDatabase.insertRecord({
+        'id': id,
+        'discogs_id': (result['discogs_id'] as num?)?.toInt(),
+        'title': title,
+        'artist': artist,
+        'year': year,
+        'cover_url': coverUrl,
+        // genre may be a List (Discogs) or String (iTunes); whereType skips any
+        // non-string entries safely (cast<String>() would throw on those).
+        'genre': () {
+          final g = result['genre'];
+          if (g is List) return g.whereType<String>().join(', ');
+          if (g is String) return g;
+          return '';
+        }(),
+        'in_collection': 1,
+        'in_wantlist': 0,
+        'synced_at': DateTime.now().toIso8601String(),
+      });
 
-    if (!mounted) return;
-    context.push('/record/$id');
+      if (!mounted) return;
+      setState(() => _isSearching = false);
+      context.push('/record/$id');
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isSearching = false;
+        _errorMessage = 'Could not open this record: $e';
+      });
+    }
   }
 
   Future<Map<String, dynamic>?> _showResultsSheet(

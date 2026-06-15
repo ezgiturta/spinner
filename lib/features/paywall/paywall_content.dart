@@ -85,11 +85,14 @@ class PaywallContent extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 4),
-            // Features fill the flexible space and are vertically centered — NO
-            // scrolling. Everything (hero, features, social proof, plans, CTA)
-            // is sized to fit one screen like the reference.
+            // Features live in a scroll view clamped to the flexible space, so
+            // they can NEVER overflow onto the social proof / plan cards (that
+            // was the 'overlapping text'). Sized to fit one screen; scrolls
+            // only on a very small device.
             Expanded(
-              child: Center(child: _buildFeatures()),
+              child: Center(
+                child: SingleChildScrollView(child: _buildFeatures()),
+              ),
             ),
             _buildSocialProof(),
             // Plan cards: pinned, always fully visible (both Annual + Weekly),

@@ -414,24 +414,24 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   // ── Notifications ───────────────────────────────────────────────────
 
   Widget _buildNotif() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 28),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          const SizedBox(height: 40),
           Container(
-            width: 108,
-            height: 108,
+            width: 96,
+            height: 96,
             decoration: BoxDecoration(
               color: SpinnerTheme.accent.withOpacity(0.15),
               shape: BoxShape.circle,
             ),
             child: const Icon(Icons.notifications_active_rounded,
-                color: SpinnerTheme.accent, size: 54),
+                color: SpinnerTheme.accent, size: 48),
           ),
-          const SizedBox(height: 36),
+          const SizedBox(height: 24),
           Text(
-            'Stay ahead of the market',
+            'Never miss a drop',
             textAlign: TextAlign.center,
             style: SpinnerTheme.nunito(
               size: 26,
@@ -439,16 +439,82 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               color: SpinnerTheme.white,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 10),
           Text(
-            'Get notified when a record on your wishlist drops in price or a '
-            'rare pressing shows up.',
+            'Turn on alerts so you hear the moment a record drops in price or '
+            'your collection jumps in value.',
             textAlign: TextAlign.center,
             style: SpinnerTheme.nunito(
-              size: 16,
+              size: 15,
               weight: FontWeight.w400,
               color: SpinnerTheme.grey,
               height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 28),
+          _notifPreview('💰', 'Price drop',
+              'Kind of Blue just dropped to \$32 on Discogs'),
+          _notifPreview('📈', 'Collection up',
+              'Your collection gained \$48 this week'),
+          _notifPreview('🔔', 'Wishlist hit',
+              'A near-mint copy of Rumours is now \$25'),
+        ],
+      ),
+    );
+  }
+
+  // Faux iOS push banner used to prime the notification permission.
+  Widget _notifPreview(String emoji, String title, String body) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.25), blurRadius: 12),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: SpinnerTheme.accent,
+              borderRadius: BorderRadius.circular(9),
+            ),
+            alignment: Alignment.center,
+            child: Text(emoji, style: const TextStyle(fontSize: 20)),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: SpinnerTheme.nunito(
+                          size: 13,
+                          weight: FontWeight.w800,
+                          color: Colors.black,
+                        ),
+                      ),
+                    ),
+                    Text('now',
+                        style: SpinnerTheme.nunito(
+                            size: 11, color: Colors.black45)),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  body,
+                  style: SpinnerTheme.nunito(size: 13, color: Colors.black87),
+                ),
+              ],
             ),
           ),
         ],
@@ -459,59 +525,91 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   // ── "Personalizing" loader ──────────────────────────────────────────
 
   Widget _buildLoading() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 40),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0, end: 1),
-              duration: const Duration(milliseconds: 2400),
-              builder: (context, value, _) {
-                return SizedBox(
-                  width: 120,
-                  height: 120,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      SizedBox(
-                        width: 120,
-                        height: 120,
-                        child: CircularProgressIndicator(
-                          value: value,
-                          strokeWidth: 6,
-                          backgroundColor: SpinnerTheme.surface,
-                          valueColor: const AlwaysStoppedAnimation<Color>(
-                              SpinnerTheme.accent),
-                        ),
-                      ),
-                      Text(
-                        '${(value * 100).round()}%',
-                        style: SpinnerTheme.nunito(
-                          size: 26,
-                          weight: FontWeight.w800,
-                          color: SpinnerTheme.white,
-                        ),
-                      ),
-                    ],
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 32),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Personalizing your\nSpinner experience',
+            style: SpinnerTheme.nunito(
+              size: 26,
+              weight: FontWeight.w800,
+              color: SpinnerTheme.white,
+              height: 1.2,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Building it from your taste. Three steps.',
+            style: SpinnerTheme.nunito(
+              size: 14,
+              weight: FontWeight.w400,
+              color: SpinnerTheme.grey,
+            ),
+          ),
+          const SizedBox(height: 28),
+          TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0, end: 1),
+            duration: const Duration(milliseconds: 2400),
+            builder: (context, v, _) {
+              return Column(
+                children: [
+                  _loaderBar('Analyzing your taste',
+                      (v / 0.34).clamp(0.0, 1.0)),
+                  _loaderBar('Matching pressings',
+                      ((v - 0.33) / 0.34).clamp(0.0, 1.0)),
+                  _loaderBar('Calibrating market values',
+                      ((v - 0.66) / 0.34).clamp(0.0, 1.0)),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _loaderBar(String label, double value) {
+    final done = value >= 1.0;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  style: SpinnerTheme.nunito(
+                    size: 15,
+                    weight: FontWeight.w600,
+                    color: SpinnerTheme.white,
                   ),
-                );
-              },
-            ),
-            const SizedBox(height: 32),
-            Text(
-              'Personalizing your\nSpinner experience',
-              textAlign: TextAlign.center,
-              style: SpinnerTheme.nunito(
-                size: 22,
-                weight: FontWeight.w800,
-                color: SpinnerTheme.white,
-                height: 1.3,
+                ),
               ),
+              done
+                  ? const Icon(Icons.check_circle,
+                      color: SpinnerTheme.green, size: 18)
+                  : Text('${(value * 100).round()}%',
+                      style: SpinnerTheme.nunito(
+                          size: 13, color: SpinnerTheme.grey)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: value,
+              minHeight: 6,
+              backgroundColor: SpinnerTheme.surface,
+              valueColor:
+                  const AlwaysStoppedAnimation<Color>(SpinnerTheme.accent),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
