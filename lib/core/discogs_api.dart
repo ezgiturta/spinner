@@ -10,7 +10,7 @@ class DiscogsApi {
   static const String _baseUrl = 'https://api.discogs.com';
   static const String consumerKey = 'RjrMoGGZRWPVYEWRZIMG';
   static const String _consumerKey = consumerKey;
-  static const String _consumerSecret = 'cjCYrFzJZXZ0YptcFFQTbEdseUEHxBPW';
+  static const String _consumerSecret = 'cjCYrFzJZXZOYptcFFQTbEdseUEHxBPW';
 
   static const String _requestTokenUrl =
       'https://api.discogs.com/oauth/request_token';
