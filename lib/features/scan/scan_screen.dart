@@ -407,12 +407,10 @@ class _ScanScreenState extends State<ScanScreen>
               width: double.infinity,
               height: 54,
               child: ElevatedButton.icon(
-                onPressed: _isSearching
-                    ? null
-                    : () => _captureCover(ImageSource.camera),
-                icon: const Icon(Icons.photo_camera_rounded, size: 20),
+                onPressed: _isSearching ? null : _pickImageSource,
+                icon: const Icon(Icons.add_a_photo_rounded, size: 20),
                 label: Text(
-                  'Take cover photo',
+                  'Scan a cover',
                   style: SpinnerTheme.nunito(
                     size: 16,
                     weight: FontWeight.w700,
@@ -428,22 +426,59 @@ class _ScanScreenState extends State<ScanScreen>
                 ),
               ),
             ),
-            const SizedBox(height: 12),
-            TextButton.icon(
-              onPressed: _isSearching
-                  ? null
-                  : () => _captureCover(ImageSource.gallery),
-              icon: Icon(Icons.photo_library_outlined,
-                  size: 18, color: SpinnerTheme.grey),
-              label: Text(
-                'Choose from library',
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// One entry point for both camera and gallery — a bottom sheet with both
+  /// options, so the user doesn't hop between separate buttons/screens.
+  void _pickImageSource() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: SpinnerTheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            ListTile(
+              leading: Icon(Icons.photo_camera_rounded,
+                  color: SpinnerTheme.accent),
+              title: Text(
+                'Take Photo',
                 style: SpinnerTheme.nunito(
-                  size: 14,
+                  size: 16,
                   weight: FontWeight.w600,
-                  color: SpinnerTheme.grey,
+                  color: SpinnerTheme.white,
                 ),
               ),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                _captureCover(ImageSource.camera);
+              },
             ),
+            ListTile(
+              leading: Icon(Icons.photo_library_rounded,
+                  color: SpinnerTheme.accent),
+              title: Text(
+                'Choose from Library',
+                style: SpinnerTheme.nunito(
+                  size: 16,
+                  weight: FontWeight.w600,
+                  color: SpinnerTheme.white,
+                ),
+              ),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                _captureCover(ImageSource.gallery);
+              },
+            ),
+            const SizedBox(height: 8),
           ],
         ),
       ),

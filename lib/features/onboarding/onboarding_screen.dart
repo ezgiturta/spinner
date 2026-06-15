@@ -179,21 +179,21 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 onPageChanged: _onPageChanged,
                 children: [
                   _buildShowcase(
-                    icon: Icons.photo_camera_rounded,
+                    image: 'assets/onboarding/vinyl1.jpg',
                     title: 'Scan any record',
                     body:
                         'Snap a photo of the cover and Spinner IDs the exact '
                         'pressing, then pulls its market value in seconds.',
                   ),
                   _buildShowcase(
-                    icon: Icons.album_rounded,
+                    image: 'assets/onboarding/vinyl5.jpg',
                     title: 'Build your collection',
                     body:
                         'Every record you scan lands in your collection with '
                         'its value, condition grade, and history.',
                   ),
                   _buildShowcase(
-                    icon: Icons.trending_down_rounded,
+                    image: 'assets/onboarding/vinyl4.webp',
                     title: 'Never overpay again',
                     body:
                         'Add records to your wishlist and get pinged the moment '
@@ -259,30 +259,29 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   // ── Showcase ────────────────────────────────────────────────────────
 
   Widget _buildShowcase({
-    required IconData icon,
+    required String image,
     required String title,
     required String body,
   }) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 32),
-      // Fixed top offset + start alignment so the icon and title sit at the
+      // Fixed top offset + start alignment so the image and title sit at the
       // SAME vertical position on every showcase page, regardless of how many
-      // lines the body text wraps to. (Center alignment made each title land at
-      // a different height.)
+      // lines the body text wraps to.
       child: Column(
         mainAxisAlignment: MainAxisAlignment.start,
         children: [
-          const SizedBox(height: 64),
-          Container(
-            width: 108,
-            height: 108,
-            decoration: BoxDecoration(
-              color: SpinnerTheme.accent.withOpacity(0.15),
-              shape: BoxShape.circle,
+          const SizedBox(height: 48),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: Image.asset(
+              image,
+              width: double.infinity,
+              height: 280,
+              fit: BoxFit.cover,
             ),
-            child: Icon(icon, color: SpinnerTheme.accent, size: 54),
           ),
-          const SizedBox(height: 36),
+          const SizedBox(height: 32),
           Text(
             title,
             textAlign: TextAlign.center,

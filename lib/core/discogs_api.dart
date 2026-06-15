@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
-import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
@@ -83,19 +82,15 @@ class DiscogsApi {
     final params = <String, String>{
       'oauth_consumer_key': _consumerKey,
       'oauth_nonce': nonce,
-      'oauth_signature_method': 'HMAC-SHA1',
+      'oauth_signature_method': 'PLAINTEXT',
       'oauth_timestamp': timestamp,
       'oauth_version': '1.0',
       'oauth_callback': callbackUrl,
     };
 
-    final signature = _generateSignature(
-      'POST',
-      _requestTokenUrl,
-      params,
-      '',
-    );
-    params['oauth_signature'] = signature;
+    // PLAINTEXT signature (Discogs supports it) — avoids HMAC base-string
+    // pitfalls. Request-token stage has no token secret yet.
+    params['oauth_signature'] = _plaintextSignature('');
 
     final response = await _dio.post(
       _requestTokenUrl,
@@ -134,20 +129,15 @@ class DiscogsApi {
     final params = <String, String>{
       'oauth_consumer_key': _consumerKey,
       'oauth_nonce': nonce,
-      'oauth_signature_method': 'HMAC-SHA1',
+      'oauth_signature_method': 'PLAINTEXT',
       'oauth_timestamp': timestamp,
       'oauth_version': '1.0',
       'oauth_token': requestToken,
       'oauth_verifier': oauthVerifier,
     };
 
-    final signature = _generateSignature(
-      'POST',
-      _accessTokenUrl,
-      params,
-      requestSecret,
-    );
-    params['oauth_signature'] = signature;
+    // PLAINTEXT signature with the request-token secret.
+    params['oauth_signature'] = _plaintextSignature(requestSecret);
 
     final response = await _dio.post(
       _accessTokenUrl,
@@ -351,30 +341,20 @@ class DiscogsApi {
 
     await _enforceRateLimit();
 
-    final fullUrl = '$_baseUrl$path';
     final nonce = _generateNonce();
     final timestamp = _timestamp();
 
     final oauthParams = <String, String>{
       'oauth_consumer_key': _consumerKey,
       'oauth_nonce': nonce,
-      'oauth_signature_method': 'HMAC-SHA1',
+      'oauth_signature_method': 'PLAINTEXT',
       'oauth_timestamp': timestamp,
       'oauth_version': '1.0',
       'oauth_token': _accessToken!,
     };
 
-    // Merge query params for signature base string.
-    final allParams = <String, String>{...oauthParams};
-    if (queryParams != null) allParams.addAll(queryParams);
-
-    final signature = _generateSignature(
-      'GET',
-      fullUrl,
-      allParams,
-      _accessSecret!,
-    );
-    oauthParams['oauth_signature'] = signature;
+    // PLAINTEXT signature, consistent with the login flow.
+    oauthParams['oauth_signature'] = _plaintextSignature(_accessSecret!);
 
     try {
       final response = await _dio.get(
@@ -417,27 +397,9 @@ class DiscogsApi {
 
   // ── OAuth Signature Helpers ──
 
-  String _generateSignature(
-    String method,
-    String url,
-    Map<String, String> params,
-    String tokenSecret,
-  ) {
-    final sortedKeys = params.keys.toList()..sort();
-    final paramString = sortedKeys
-        .map((k) => '${_percentEncode(k)}=${_percentEncode(params[k]!)}')
-        .join('&');
-
-    final baseString =
-        '${method.toUpperCase()}&${_percentEncode(url)}&${_percentEncode(paramString)}';
-
-    final signingKey =
-        '${_percentEncode(_consumerSecret)}&${_percentEncode(tokenSecret)}';
-
-    final hmac = Hmac(sha1, utf8.encode(signingKey));
-    final digest = hmac.convert(utf8.encode(baseString));
-    return base64.encode(digest.bytes);
-  }
+  // PLAINTEXT OAuth signature = consumer secret & token secret, percent-encoded.
+  String _plaintextSignature(String tokenSecret) =>
+      '${_percentEncode(_consumerSecret)}&${_percentEncode(tokenSecret)}';
 
   String _buildAuthHeader(Map<String, String> params) {
     final entries = params.entries

@@ -156,7 +156,7 @@ class PaywallContent extends StatelessWidget {
     // instead of a small fixed band. Clamped so it stays sane on tiny/large
     // devices.
     final height =
-        (MediaQuery.of(context).size.height * 0.36).clamp(240.0, 360.0);
+        (MediaQuery.of(context).size.height * 0.30).clamp(200.0, 290.0);
     return SizedBox(
       height: height,
       width: double.infinity,
@@ -260,7 +260,7 @@ class PaywallContent extends StatelessWidget {
         children: [
           for (final f in feats)
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 11),
+              padding: const EdgeInsets.symmetric(vertical: 9),
               child: Row(
                 children: [
                   Text(f[0], style: const TextStyle(fontSize: 22)),

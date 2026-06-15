@@ -11,6 +11,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/ai_access.dart';
 import '../../core/database.dart';
 import '../../core/discogs_api.dart';
 import '../../core/router.dart';
@@ -30,11 +31,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   bool _discogsConnected = false;
   String? _discogsUsername;
+  bool _isPro = false;
 
   @override
   void initState() {
     super.initState();
     _checkConnections();
+    _checkPro();
+  }
+
+  Future<void> _checkPro() async {
+    final pro = await AiAccess.isPro();
+    if (!mounted) return;
+    setState(() => _isPro = pro);
   }
 
   Future<void> _checkConnections() async {
@@ -358,12 +367,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         children: [
           _buildSectionHeader('Subscription'),
-          _buildRow(
-            icon: Icons.star_outline,
-            title: 'Upgrade to Pro',
-            trailing: Icon(Icons.chevron_right, color: SpinnerTheme.grey),
-            onTap: () => context.push(AppRoutes.paywall),
-          ),
+          if (_isPro)
+            _buildRow(
+              icon: Icons.star,
+              title: 'Spinner Pro',
+              titleColor: SpinnerTheme.accent,
+              trailing: Text(
+                'Active',
+                style: SpinnerTheme.nunito(
+                  size: 13,
+                  weight: FontWeight.w700,
+                  color: SpinnerTheme.green,
+                ),
+              ),
+            )
+          else
+            _buildRow(
+              icon: Icons.star_outline,
+              title: 'Upgrade to Pro',
+              trailing: Icon(Icons.chevron_right, color: SpinnerTheme.grey),
+              onTap: () => context.push(AppRoutes.paywall),
+            ),
           _buildRow(
             icon: Icons.restore,
             title: 'Restore Purchases',
