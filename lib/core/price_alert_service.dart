@@ -4,13 +4,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'database.dart';
 import 'market_value_service.dart';
 
-/// Watches the wantlist for price drops and fires a local notification when the
-/// lowest live marketplace price (eBay + Reverb, and Discogs when connected)
-/// for an item falls under the user's [alert_price].
+/// Watches two things and fires local notifications:
+///  - the WANTLIST for price drops below the user's [alert_price], and
+///  - the COLLECTION for meaningful value changes (a record you own going up or
+///    down by >=15%), so every scanned record is auto-watched with no setup.
 ///
-/// iOS background fetch is unreliable, so we run the check on every cold start
-/// and whenever the user opens the wantlist screen. Last-seen prices are
-/// cached in SharedPreferences so we only notify on a meaningful drop.
+/// Prices are live (eBay + Reverb, and Discogs when known). iOS background
+/// fetch is unreliable, so we run on every cold start and when the wantlist
+/// opens. Wantlist last-seen prices are cached in prefs; collection changes
+/// compare against the median_value already stored on the record.
 class PriceAlertService {
   PriceAlertService._();
   static final PriceAlertService instance = PriceAlertService._();
@@ -38,13 +40,19 @@ class PriceAlertService {
     _ready = true;
   }
 
-  /// Run a one-shot price check against the entire wantlist using live
-  /// marketplace prices. No account/auth required.
+  /// One-shot check of both the wantlist (price drops) and the collection
+  /// (value changes). No account/auth required.
   Future<void> checkOnce() async {
+    await _ensureReady();
+    await _checkWantlistDrops();
+    await _checkCollectionChanges();
+  }
+
+  // ── Wantlist: notify when the lowest price drops below the target ──
+  Future<void> _checkWantlistDrops() async {
     final items = await AppDatabase.getWantlist();
     if (items.isEmpty) return;
 
-    await _ensureReady();
     final prefs = await SharedPreferences.getInstance();
     final lastSeenRaw = prefs.getStringList(_lastSeenKey) ?? const <String>[];
     final lastSeen = <String, double>{
@@ -93,6 +101,57 @@ class PriceAlertService {
     );
   }
 
+  // ── Collection: notify when an owned record's value moves >=15% ──
+  // Every scanned record is auto-watched (no setup needed). We only refresh
+  // values that are missing or stale (>24h) to keep API calls down, and
+  // compare against the median already stored on the record.
+  Future<void> _checkCollectionChanges() async {
+    final items = await AppDatabase.getCollection();
+    if (items.isEmpty) return;
+
+    for (final item in items) {
+      final id = item['id'] as String?;
+      if (id == null) continue;
+      if (!MarketValueService.isStale(item)) continue;
+      final title = (item['title'] as String?) ?? '';
+      if (title.isEmpty) continue;
+      final artist = (item['artist'] as String?) ?? '';
+      final oldMedian = (item['median_value'] as num?)?.toDouble();
+
+      try {
+        final mv = await MarketValueService.instance.fetch(
+          artist: artist,
+          title: title,
+          discogsId: (item['discogs_id'] as num?)?.toInt(),
+        );
+        if (mv == null) continue;
+
+        await AppDatabase.updateRecord(id, {
+          'median_value': mv.median,
+          'low_value': mv.low,
+          'high_value': mv.high,
+          'value_updated_at': DateTime.now().toIso8601String(),
+        });
+
+        if (oldMedian != null && oldMedian > 0) {
+          final change = (mv.median - oldMedian) / oldMedian;
+          if (change.abs() >= 0.15) {
+            final up = mv.median > oldMedian;
+            await _notify(
+              id: id.hashCode & 0x7fffffff,
+              title: up ? '$title is up in value' : '$title dropped in value',
+              body: artist.isNotEmpty
+                  ? '$artist · now \$${mv.median.toStringAsFixed(2)} (was \$${oldMedian.toStringAsFixed(2)})'
+                  : 'Now \$${mv.median.toStringAsFixed(2)} (was \$${oldMedian.toStringAsFixed(2)})',
+            );
+          }
+        }
+      } catch (_) {
+        // Skip this item, continue with the rest.
+      }
+    }
+  }
+
   Future<void> _notify({
     required int id,
     required String title,
@@ -101,7 +160,8 @@ class PriceAlertService {
     const android = AndroidNotificationDetails(
       _channelId,
       _channelName,
-      channelDescription: 'Notified when a wantlist record drops in price',
+      channelDescription:
+          'Wantlist price drops and collection value changes',
       importance: Importance.high,
       priority: Priority.high,
     );
