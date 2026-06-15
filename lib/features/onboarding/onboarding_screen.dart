@@ -186,18 +186,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         'pressing, then pulls its market value in seconds.',
                   ),
                   _buildShowcase(
-                    image: 'assets/onboarding/vinyl5.jpg',
+                    image: 'assets/onboarding/vinyl3.webp',
                     title: 'Build your collection',
                     body:
                         'Every record you scan lands in your collection with '
                         'its value, condition grade, and history.',
                   ),
                   _buildShowcase(
-                    image: 'assets/onboarding/vinyl4.webp',
-                    title: 'Never overpay again',
+                    image: 'assets/onboarding/vinyl2.jpg',
+                    title: 'Stay ahead of the market',
                     body:
-                        'Add records to your wishlist and get pinged the moment '
-                        'a copy drops in price.',
+                        'Track what your records are worth and get pinged the '
+                        'moment a copy drops in price.',
                   ),
                   _buildExperience(),
                   _buildGenres(),

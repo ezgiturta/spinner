@@ -85,16 +85,11 @@ class PaywallContent extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 4),
-            // Features sit just under the title (Cardly layout). The flexible
-            // space falls below them, before the social proof + plans. Scrolls
-            // only if it can't fit on a very small screen.
+            // Features fill the flexible space and are vertically centered — NO
+            // scrolling. Everything (hero, features, social proof, plans, CTA)
+            // is sized to fit one screen like the reference.
             Expanded(
-              child: SingleChildScrollView(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  child: _buildFeatures(),
-                ),
-              ),
+              child: Center(child: _buildFeatures()),
             ),
             _buildSocialProof(),
             // Plan cards: pinned, always fully visible (both Annual + Weekly),
@@ -156,7 +151,7 @@ class PaywallContent extends StatelessWidget {
     // instead of a small fixed band. Clamped so it stays sane on tiny/large
     // devices.
     final height =
-        (MediaQuery.of(context).size.height * 0.30).clamp(200.0, 290.0);
+        (MediaQuery.of(context).size.height * 0.26).clamp(190.0, 250.0);
     return SizedBox(
       height: height,
       width: double.infinity,
@@ -260,7 +255,7 @@ class PaywallContent extends StatelessWidget {
         children: [
           for (final f in feats)
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 9),
+              padding: const EdgeInsets.symmetric(vertical: 7),
               child: Row(
                 children: [
                   Text(f[0], style: const TextStyle(fontSize: 22)),

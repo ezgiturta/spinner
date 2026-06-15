@@ -103,17 +103,16 @@ class _ScanScreenState extends State<ScanScreen>
     // the user sees the result. Paying is what unlocks the reveal.
     List<Map<String, dynamic>> results = [];
     String? failure;
+    String? guess; // AI's best guess, used to prefill manual search on a miss
     try {
       final parsed = await ClaudeApi.instance.identifyCover(File(photo.path));
-      final query = parsed.bestQuery;
-      if (query == null || query.trim().isEmpty) {
-        failure = "Couldn't identify this cover. Try a clearer, straight-on "
-            'photo of the front cover, or use Manual Search.';
+      guess = parsed.bestQuery;
+      if (guess == null || guess.trim().isEmpty) {
+        failure = "Couldn't read this cover. Search by name instead.";
       } else {
-        results = await _runSearch(query);
+        results = await _runSearch(guess);
         if (results.isEmpty) {
-          failure = 'No match found for this cover. Try a clearer photo or '
-              'use Manual Search.';
+          failure = 'No exact match. Refine the search below.';
         }
       }
     } catch (e) {
@@ -127,9 +126,16 @@ class _ScanScreenState extends State<ScanScreen>
     if (!await SubscriptionGate.requirePro(context)) return;
     if (!mounted) return;
 
-    // Paid (or already Pro): now reveal the outcome.
+    // On a miss, don't dead-end on the camera screen: jump to Manual Search
+    // with the AI's best guess prefilled and run it, so there's always a next
+    // step and visible results.
     if (failure != null) {
+      _searchController.text = guess ?? '';
+      _tabController.animateTo(_manualTab);
       setState(() => _errorMessage = failure);
+      if ((guess ?? '').trim().isNotEmpty) {
+        await _searchDiscogs(query: guess!);
+      }
       return;
     }
     if (results.length == 1) {
@@ -141,6 +147,8 @@ class _ScanScreenState extends State<ScanScreen>
       }
     }
   }
+
+  static const _manualTab = 1;
 
   /// Raw search: Discogs first, then iTunes. Returns whatever it finds (may be
   /// empty); swallows errors so the caller can treat "nothing found" uniformly.
