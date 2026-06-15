@@ -66,6 +66,7 @@ class PriceAlertService {
         final lowest = await MarketValueService.instance.lowestPrice(
           artist: artist,
           title: title,
+          discogsId: (item['discogs_id'] as num?)?.toInt(),
         );
         if (lowest == null) continue;
 

@@ -249,7 +249,7 @@ class PaywallContent extends StatelessWidget {
   Widget _buildFeatures() {
     const feats = <List<String>>[
       ['🎯', 'Unlimited vinyl scans'],
-      ['💎', 'Live eBay & Reverb market values'],
+      ['💎', 'Live Discogs, eBay & Reverb values'],
       ['⚡', 'AI condition grading from a photo'],
       ['🔥', 'Album stories & mood picks'],
       ['✨', 'Wishlist price drop alerts'],

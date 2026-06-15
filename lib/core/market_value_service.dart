@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'database.dart';
+import 'discogs_api.dart';
 import 'ebay_api.dart';
 import 'reverb_api.dart';
 
@@ -19,9 +20,10 @@ class MarketValue {
   });
 }
 
-/// Pulls real prices for a record from eBay + Reverb, then derives
-/// low / median / high. This backs the record detail value card, the
-/// collection's total worth, and wishlist price-drop alerts.
+/// Pulls real prices for a record from Discogs (release lowest_price, no login
+/// needed) + eBay + Reverb, then derives low / median / high. This backs the
+/// "Live Discogs, eBay & Reverb values" claim, the record detail value card,
+/// the collection's total worth, and wishlist price-drop alerts.
 class MarketValueService {
   MarketValueService._();
   static final MarketValueService instance = MarketValueService._();
@@ -37,27 +39,41 @@ class MarketValueService {
   Future<List<double>> _collectPrices({
     required String artist,
     required String title,
+    int? discogsId,
   }) async {
     final query =
         [artist, title].where((s) => s.trim().isNotEmpty).join(' ').trim();
-    if (query.isEmpty) return const [];
+    if (query.isEmpty && discogsId == null) return const [];
 
     final prices = <double>[];
 
     // eBay + Reverb in parallel — both already swallow their own errors and
     // return [] when their keys are unset.
-    final ebayFut = _ebay.searchVinyl(query, limit: 12);
-    final reverbFut = _reverb.searchVinyl(query, limit: 12);
-    final ebay = await ebayFut;
-    final reverb = await reverbFut;
-
-    for (final l in ebay) {
-      final p = l.price;
-      if (p != null && p > 0) prices.add(p);
+    if (query.isNotEmpty) {
+      final ebayFut = _ebay.searchVinyl(query, limit: 12);
+      final reverbFut = _reverb.searchVinyl(query, limit: 12);
+      final ebay = await ebayFut;
+      final reverb = await reverbFut;
+      for (final l in ebay) {
+        final p = l.price;
+        if (p != null && p > 0) prices.add(p);
+      }
+      for (final l in reverb) {
+        final p = l.price;
+        if (p != null && p > 0) prices.add(p);
+      }
     }
-    for (final l in reverb) {
-      final p = l.price;
-      if (p != null && p > 0) prices.add(p);
+
+    // Discogs marketplace lowest price — works with just the consumer key, no
+    // user login. Only when we know the Discogs release id (set on scan).
+    if (discogsId != null) {
+      try {
+        final release = await DiscogsApi().getReleaseDetails(discogsId);
+        final lp = release['lowest_price'];
+        if (lp is num && lp > 0) prices.add(lp.toDouble());
+      } catch (_) {
+        // Ignore Discogs failures; eBay/Reverb still stand.
+      }
     }
 
     return prices;
@@ -67,8 +83,10 @@ class MarketValueService {
   Future<MarketValue?> fetch({
     required String artist,
     required String title,
+    int? discogsId,
   }) async {
-    final prices = await _collectPrices(artist: artist, title: title);
+    final prices =
+        await _collectPrices(artist: artist, title: title, discogsId: discogsId);
     if (prices.isEmpty) return null;
     prices.sort();
     return MarketValue(
@@ -87,6 +105,7 @@ class MarketValueService {
     final mv = await fetch(
       artist: record['artist'] as String? ?? '',
       title: record['title'] as String? ?? '',
+      discogsId: (record['discogs_id'] as num?)?.toInt(),
     );
     if (mv == null) return null;
     await AppDatabase.updateRecord(id, {
@@ -102,8 +121,10 @@ class MarketValueService {
   Future<double?> lowestPrice({
     required String artist,
     required String title,
+    int? discogsId,
   }) async {
-    final prices = await _collectPrices(artist: artist, title: title);
+    final prices =
+        await _collectPrices(artist: artist, title: title, discogsId: discogsId);
     if (prices.isEmpty) return null;
     prices.sort();
     return prices.first;
