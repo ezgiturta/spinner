@@ -20,12 +20,20 @@ class AiAccess {
 
   /// True if the user has any active RevenueCat entitlement. Best-effort —
   /// returns false if RevenueCat is not configured or call fails.
+  ///
+  /// Caches the last successful result so a transient RevenueCat/network hiccup
+  /// doesn't momentarily report a paying user as non-Pro (which would wrongly
+  /// pop the paywall mid-session).
+  static bool? _lastKnownPro;
+
   static Future<bool> isPro() async {
     try {
       final info = await Purchases.getCustomerInfo();
-      return info.entitlements.active.isNotEmpty;
+      final pro = info.entitlements.active.isNotEmpty;
+      _lastKnownPro = pro;
+      return pro;
     } catch (_) {
-      return false;
+      return _lastKnownPro ?? false;
     }
   }
 
