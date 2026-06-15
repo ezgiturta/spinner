@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'database.dart';
-import 'discogs_api.dart';
 import 'ebay_api.dart';
 import 'reverb_api.dart';
 
@@ -20,11 +19,9 @@ class MarketValue {
   });
 }
 
-/// Pulls real prices for a record from eBay + Reverb (and Discogs price
-/// suggestions when the user has connected their Discogs account), then derives
-/// low / median / high. This is what backs the "Live Discogs, eBay & Reverb
-/// values" claim, the record detail value card, the collection's total worth,
-/// and wishlist price-drop alerts.
+/// Pulls real prices for a record from eBay + Reverb, then derives
+/// low / median / high. This backs the record detail value card, the
+/// collection's total worth, and wishlist price-drop alerts.
 class MarketValueService {
   MarketValueService._();
   static final MarketValueService instance = MarketValueService._();
@@ -40,7 +37,6 @@ class MarketValueService {
   Future<List<double>> _collectPrices({
     required String artist,
     required String title,
-    int? discogsId,
   }) async {
     final query =
         [artist, title].where((s) => s.trim().isNotEmpty).join(' ').trim();
@@ -64,28 +60,6 @@ class MarketValueService {
       if (p != null && p > 0) prices.add(p);
     }
 
-    // Optional: Discogs price suggestions, only if the user connected Discogs
-    // and we know the release id.
-    if (discogsId != null) {
-      try {
-        final discogs = DiscogsApi();
-        await discogs.init();
-        if (discogs.isAuthenticated) {
-          final suggestions = await discogs.getPriceSuggestions(discogsId);
-          if (suggestions != null) {
-            for (final v in suggestions.values) {
-              if (v is Map && v['value'] is num) {
-                final n = (v['value'] as num).toDouble();
-                if (n > 0) prices.add(n);
-              }
-            }
-          }
-        }
-      } catch (_) {
-        // Ignore Discogs failures; eBay/Reverb still stand.
-      }
-    }
-
     return prices;
   }
 
@@ -93,10 +67,8 @@ class MarketValueService {
   Future<MarketValue?> fetch({
     required String artist,
     required String title,
-    int? discogsId,
   }) async {
-    final prices =
-        await _collectPrices(artist: artist, title: title, discogsId: discogsId);
+    final prices = await _collectPrices(artist: artist, title: title);
     if (prices.isEmpty) return null;
     prices.sort();
     return MarketValue(
@@ -115,7 +87,6 @@ class MarketValueService {
     final mv = await fetch(
       artist: record['artist'] as String? ?? '',
       title: record['title'] as String? ?? '',
-      discogsId: (record['discogs_id'] as num?)?.toInt(),
     );
     if (mv == null) return null;
     await AppDatabase.updateRecord(id, {
@@ -131,10 +102,8 @@ class MarketValueService {
   Future<double?> lowestPrice({
     required String artist,
     required String title,
-    int? discogsId,
   }) async {
-    final prices =
-        await _collectPrices(artist: artist, title: title, discogsId: discogsId);
+    final prices = await _collectPrices(artist: artist, title: title);
     if (prices.isEmpty) return null;
     prices.sort();
     return prices.first;
