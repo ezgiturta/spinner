@@ -240,7 +240,7 @@ class PaywallContent extends StatelessWidget {
   // ── Features ──
   Widget _buildFeatures() {
     const feats = <List<String>>[
-      ['🎯', 'Unlimited vinyl scans'],
+      ['💿', 'Unlimited vinyl scans'],
       ['💎', 'Live Discogs, eBay & Reverb values'],
       ['⚡', 'AI condition grading from a photo'],
       ['🔥', 'Album stories & mood picks'],
@@ -432,13 +432,39 @@ class PaywallContent extends StatelessWidget {
 }
 
 // ── Vinyl disc ──
-class _VinylDisc extends StatelessWidget {
+class _VinylDisc extends StatefulWidget {
   final double size;
   const _VinylDisc({required this.size});
 
   @override
+  State<_VinylDisc> createState() => _VinylDiscState();
+}
+
+class _VinylDiscState extends State<_VinylDisc>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _spin;
+
+  @override
+  void initState() {
+    super.initState();
+    _spin = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 9),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _spin.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
+    final size = widget.size;
+    return RotationTransition(
+      turns: _spin,
+      child: Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
@@ -446,6 +472,11 @@ class _VinylDisc extends StatelessWidget {
         color: const Color(0xFF0B0B0B),
         border: Border.all(color: Colors.white.withOpacity(0.10), width: 1),
         boxShadow: [
+          BoxShadow(
+            color: SpinnerTheme.accent.withOpacity(0.45),
+            blurRadius: 40,
+            spreadRadius: 4,
+          ),
           BoxShadow(
             color: Colors.black.withOpacity(0.5),
             blurRadius: 24,
@@ -486,6 +517,7 @@ class _VinylDisc extends StatelessWidget {
             ),
           ),
         ),
+      ),
       ),
     );
   }
