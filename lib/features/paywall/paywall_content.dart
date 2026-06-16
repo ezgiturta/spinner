@@ -73,28 +73,30 @@ class PaywallContent extends StatelessWidget {
       children: [
         Column(
           children: [
-            _buildHero(context),
-            const SizedBox(height: 14),
-            Text(
-              'Join Spinner Pro',
-              textAlign: TextAlign.center,
-              style: SpinnerTheme.nunito(
-                size: 27,
-                weight: FontWeight.w800,
-                color: SpinnerTheme.white,
-              ),
-            ),
-            const SizedBox(height: 4),
-            // Features fill the flexible space, evenly spread — NO scroll. Hero
-            // and rows are sized so the whole page fits one screen.
-            Expanded(child: _buildFeatures()),
-            _buildSocialProof(),
-            // Plan cards: pinned, always fully visible (both Annual + Weekly),
-            // never clipped.
+            // HERO takes the flexible space (shrinks on small phones); the
+            // title, features, social proof and plan cards below are FIXED and
+            // compact. This guarantees one page — no scroll, no overflow/overlap
+            // (the proven Draft layout).
+            Expanded(child: _buildHero(context)),
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 2, 20, 0),
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  Text(
+                    'Join Spinner Pro',
+                    textAlign: TextAlign.center,
+                    style: SpinnerTheme.nunito(
+                      size: 26,
+                      weight: FontWeight.w800,
+                      color: SpinnerTheme.white,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _buildFeatures(),
+                  const SizedBox(height: 10),
+                  _buildSocialProof(),
+                  const SizedBox(height: 6),
                   _PlanCard(
                     title: 'Annual',
                     price: _priceString(PaywallPlan.yearly),
@@ -143,14 +145,10 @@ class PaywallContent extends StatelessWidget {
   }
 
   // ── Hero: synthwave sunset + vinyl ──
+  // No fixed height — it lives inside an Expanded and takes whatever vertical
+  // space is left after the fixed content below, shrinking on small phones.
   Widget _buildHero(BuildContext context) {
-    // Scale with the screen so the hero fills the top ~36% like the reference,
-    // instead of a small fixed band. Clamped so it stays sane on tiny/large
-    // devices.
-    final height =
-        (MediaQuery.of(context).size.height * 0.26).clamp(190.0, 250.0);
     return SizedBox(
-      height: height,
       width: double.infinity,
       child: Stack(
         fit: StackFit.expand,
@@ -249,7 +247,7 @@ class PaywallContent extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 26),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        mainAxisSize: MainAxisSize.min,
         children: [
           for (final f in feats)
             Padding(
