@@ -106,7 +106,7 @@ class PaywallContent extends StatelessWidget {
                     selected: selected == PaywallPlan.yearly,
                     onTap: () => onSelect(PaywallPlan.yearly),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 8),
                   _PlanCard(
                     title: 'Weekly',
                     price: _priceString(PaywallPlan.weekly),
@@ -236,96 +236,97 @@ class PaywallContent extends StatelessWidget {
   }
 
   // ── Features ──
-  // Kept to FOUR compact rows on purpose: five rows + social proof + two plan
-  // cards overran the fixed section and the social-proof bubble collided with
-  // the last feature. Four tight rows leave the bubble clear breathing room.
+  // Draft's exact compact bullet style: emoji in a fixed 28px column (so the
+  // text left-edges align), 8px gap, 15px text, only 6px bottom padding. This
+  // is what lets five rows + social proof + two plan cards fit one page with
+  // no scroll and no overlap (Spinner's old rows were ~70% taller and
+  // collided with the social-proof bubble).
   Widget _buildFeatures() {
     const feats = <List<String>>[
       ['💿', 'Unlimited vinyl scans'],
       ['💎', 'Live Discogs, eBay & Reverb values'],
       ['⚡', 'AI condition grading from a photo'],
+      ['🔥', 'Album stories & mood picks'],
       ['✨', 'Price drop alerts on your collection'],
     ];
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 26),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (final f in feats)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 5),
-              child: Row(
-                children: [
-                  Text(f[0], style: const TextStyle(fontSize: 19)),
-                  const SizedBox(width: 13),
-                  Expanded(
-                    child: Text(
-                      f[1],
-                      style: SpinnerTheme.nunito(
-                        size: 15,
-                        weight: FontWeight.w700,
-                        color: SpinnerTheme.white,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  // ── Social proof ──
-  Widget _buildSocialProof() {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: SpinnerTheme.green,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Text.rich(
-            TextSpan(
+        for (final f in feats)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Row(
               children: [
-                TextSpan(
-                  text: '2,847 people ',
-                  style: SpinnerTheme.nunito(
-                    size: 13,
-                    weight: FontWeight.w800,
-                    color: Colors.black,
-                  ),
+                SizedBox(
+                  width: 28,
+                  child: Text(f[0], style: const TextStyle(fontSize: 17)),
                 ),
-                TextSpan(
-                  text: 'joined this plan today',
-                  style: SpinnerTheme.nunito(
-                    size: 13,
-                    weight: FontWeight.w600,
-                    color: Colors.black,
-                  ),
-                ),
-                TextSpan(
-                  text: '!',
-                  style: SpinnerTheme.nunito(
-                    size: 13,
-                    weight: FontWeight.w800,
-                    color: Colors.black,
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    f[1],
+                    style: SpinnerTheme.nunito(
+                      size: 15,
+                      weight: FontWeight.w700,
+                      color: SpinnerTheme.white,
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-        ),
-        Transform.translate(
-          offset: const Offset(0, -3),
-          child: Transform.rotate(
-            angle: 0.785398,
-            child: Container(width: 12, height: 12, color: SpinnerTheme.green),
-          ),
-        ),
-        const SizedBox(height: 6),
       ],
+    );
+  }
+
+  // ── Social proof ──
+  // Matches Draft: a fully-rounded green pill with a clean downward triangle
+  // tail (CustomPaint, not a rotated square), centered just above the plans.
+  Widget _buildSocialProof() {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+            decoration: BoxDecoration(
+              color: SpinnerTheme.green,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: '2,847',
+                    style: SpinnerTheme.nunito(
+                      size: 13,
+                      weight: FontWeight.w800,
+                      color: Colors.black,
+                    ),
+                  ),
+                  TextSpan(
+                    text: ' collectors joined this plan ',
+                    style: SpinnerTheme.nunito(
+                      size: 13,
+                      weight: FontWeight.w600,
+                      color: Colors.black,
+                    ),
+                  ),
+                  TextSpan(
+                    text: 'today',
+                    style: SpinnerTheme.nunito(
+                      size: 13,
+                      weight: FontWeight.w800,
+                      color: Colors.black,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          CustomPaint(size: const Size(18, 8), painter: _BubbleTailPainter()),
+        ],
+      ),
     );
   }
 
@@ -357,16 +358,39 @@ class PaywallContent extends StatelessWidget {
             ),
             const SizedBox(height: 8),
           ],
+          // Draft order: cancel-anytime note and legal links sit ABOVE the
+          // button so the Continue CTA stays pinned at the very bottom.
+          Text(
+            'Subscription can be canceled at any time',
+            style: SpinnerTheme.nunito(
+              size: 11,
+              weight: FontWeight.w400,
+              color: SpinnerTheme.grey,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _FooterLink(label: 'Terms', onTap: () => onOpenUrl(_termsUrl)),
+              _FooterDivider(),
+              _FooterLink(
+                  label: 'Privacy', onTap: () => onOpenUrl(_privacyUrl)),
+              _FooterDivider(),
+              _FooterLink(label: 'Restore', onTap: loading ? null : onRestore),
+            ],
+          ),
+          const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
             height: 56,
             child: Material(
-              borderRadius: BorderRadius.circular(28),
+              borderRadius: BorderRadius.circular(999),
               clipBehavior: Clip.antiAlias,
               child: Ink(
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [Color(0xFF6C5CE7), Color(0xFF4A7BFF)],
+                    colors: [Color(0xFF5B6CF0), Color(0xFF8B5CF6)],
                     begin: Alignment.centerLeft,
                     end: Alignment.centerRight,
                   ),
@@ -403,27 +427,6 @@ class PaywallContent extends StatelessWidget {
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Subscription can be canceled at any time',
-            style: SpinnerTheme.nunito(
-              size: 11,
-              weight: FontWeight.w400,
-              color: SpinnerTheme.grey,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _FooterLink(label: 'Terms', onTap: () => onOpenUrl(_termsUrl)),
-              _FooterDivider(),
-              _FooterLink(
-                  label: 'Privacy', onTap: () => onOpenUrl(_privacyUrl)),
-              _FooterDivider(),
-              _FooterLink(label: 'Restore', onTap: loading ? null : onRestore),
-            ],
           ),
         ],
       ),
@@ -655,6 +658,23 @@ class _PlanCard extends StatelessWidget {
       ],
     );
   }
+}
+
+// ── Social-proof bubble tail (clean downward triangle, like Draft) ──
+class _BubbleTailPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = SpinnerTheme.green;
+    final path = Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width, 0)
+      ..lineTo(size.width / 2, size.height)
+      ..close();
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 // ── Footer links ──
