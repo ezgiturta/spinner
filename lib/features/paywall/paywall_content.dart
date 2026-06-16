@@ -104,7 +104,7 @@ class PaywallContent extends StatelessWidget {
                     selected: selected == PaywallPlan.yearly,
                     onTap: () => onSelect(PaywallPlan.yearly),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   _PlanCard(
                     title: 'Weekly',
                     price: _priceString(PaywallPlan.weekly),
@@ -520,7 +520,7 @@ class _PlanCard extends StatelessWidget {
           onTap: onTap,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               color: selected
                   ? SpinnerTheme.accent.withOpacity(0.12)
@@ -568,7 +568,7 @@ class _PlanCard extends StatelessWidget {
                             TextSpan(
                               text: price,
                               style: SpinnerTheme.nunito(
-                                size: 19,
+                                size: 17,
                                 weight: FontWeight.w800,
                                 color: SpinnerTheme.white,
                               ),
