@@ -15,7 +15,10 @@ class SearchResultsSheet extends StatelessWidget {
     final screenHeight = MediaQuery.of(context).size.height;
 
     return Container(
-      constraints: BoxConstraints(maxHeight: screenHeight * 0.75),
+      // Fixed height (not maxHeight) + Expanded list below. The old
+      // min-Column + Flexible + shrinkWrap combo collapsed the ListView to
+      // zero height inside the sheet → a blank grey area despite N results.
+      height: screenHeight * 0.7,
       decoration: BoxDecoration(
         color: SpinnerTheme.bg,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
@@ -26,12 +29,11 @@ class SearchResultsSheet extends StatelessWidget {
         ),
       ),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
         children: [
           _buildHandle(),
           _buildHeader(),
           const Divider(height: 1),
-          Flexible(child: _buildResultsList(context)),
+          Expanded(child: _buildResultsList(context)),
         ],
       ),
     );
@@ -80,7 +82,6 @@ class SearchResultsSheet extends StatelessWidget {
 
   Widget _buildResultsList(BuildContext context) {
     return ListView.separated(
-      shrinkWrap: true,
       padding: const EdgeInsets.only(bottom: 24),
       itemCount: results.length,
       separatorBuilder: (_, __) => Divider(
