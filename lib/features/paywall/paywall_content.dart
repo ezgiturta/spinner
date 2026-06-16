@@ -236,13 +236,15 @@ class PaywallContent extends StatelessWidget {
   }
 
   // ── Features ──
+  // Kept to FOUR compact rows on purpose: five rows + social proof + two plan
+  // cards overran the fixed section and the social-proof bubble collided with
+  // the last feature. Four tight rows leave the bubble clear breathing room.
   Widget _buildFeatures() {
     const feats = <List<String>>[
       ['💿', 'Unlimited vinyl scans'],
       ['💎', 'Live Discogs, eBay & Reverb values'],
       ['⚡', 'AI condition grading from a photo'],
-      ['🔥', 'Album stories & mood picks'],
-      ['✨', 'Wishlist price drop alerts'],
+      ['✨', 'Price drop alerts on your collection'],
     ];
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 26),
@@ -251,16 +253,16 @@ class PaywallContent extends StatelessWidget {
         children: [
           for (final f in feats)
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 7),
+              padding: const EdgeInsets.symmetric(vertical: 5),
               child: Row(
                 children: [
-                  Text(f[0], style: const TextStyle(fontSize: 22)),
-                  const SizedBox(width: 14),
+                  Text(f[0], style: const TextStyle(fontSize: 19)),
+                  const SizedBox(width: 13),
                   Expanded(
                     child: Text(
                       f[1],
                       style: SpinnerTheme.nunito(
-                        size: 16,
+                        size: 15,
                         weight: FontWeight.w700,
                         color: SpinnerTheme.white,
                       ),

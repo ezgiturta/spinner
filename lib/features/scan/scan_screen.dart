@@ -14,7 +14,6 @@ import '../../core/discogs_api.dart';
 import '../../core/itunes_api.dart';
 import '../../core/subscription_gate.dart';
 import '../../core/theme.dart';
-import 'search_results_sheet.dart';
 
 class ScanScreen extends StatefulWidget {
   const ScanScreen({super.key});
@@ -96,6 +95,7 @@ class _ScanScreenState extends State<ScanScreen>
     setState(() {
       _isSearching = true;
       _errorMessage = null;
+      _searchResults = null;
     });
 
     // Run identify + search first, but DON'T reveal anything yet. Whatever the
@@ -142,10 +142,11 @@ class _ScanScreenState extends State<ScanScreen>
     if (results.length == 1) {
       await _saveAndNavigate(results.first);
     } else {
-      final selected = await _showResultsSheet(results);
-      if (selected != null && mounted) {
-        await _saveAndNavigate(selected);
-      }
+      // Show matches INLINE on the scan tab. The modal bottom sheet
+      // (showModalBottomSheet) rendered as a blank grey area in release builds
+      // — the header showed "N results" but the list never painted. The inline
+      // ListView is the proven, reliable path (same one Manual Search uses).
+      setState(() => _searchResults = results);
     }
   }
 
@@ -274,13 +275,67 @@ class _ScanScreenState extends State<ScanScreen>
     }
   }
 
-  Future<Map<String, dynamic>?> _showResultsSheet(
-      List<Map<String, dynamic>> results) {
-    return showModalBottomSheet<Map<String, dynamic>>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => SearchResultsSheet(results: results),
+  /// Inline "Select a release" list shown on the Scan Cover tab after a scan
+  /// returns multiple matches. Replaces the old modal bottom sheet, which
+  /// rendered as a blank grey area in release builds.
+  Widget _buildScanResults() {
+    final count = _searchResults?.length ?? 0;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+          child: Row(
+            children: [
+              Text(
+                'Select a release',
+                style: SpinnerTheme.nunito(
+                  size: 18,
+                  weight: FontWeight.w700,
+                  color: SpinnerTheme.white,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '$count results',
+                style: SpinnerTheme.nunito(
+                  size: 13,
+                  weight: FontWeight.w400,
+                  color: SpinnerTheme.grey,
+                ),
+              ),
+              const Spacer(),
+              GestureDetector(
+                onTap: () => setState(() {
+                  _searchResults = null;
+                  _errorMessage = null;
+                }),
+                child: Row(
+                  children: [
+                    Icon(Icons.refresh, size: 16, color: SpinnerTheme.accent),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Scan again',
+                      style: SpinnerTheme.nunito(
+                        size: 13,
+                        weight: FontWeight.w600,
+                        color: SpinnerTheme.accent,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        Divider(height: 1, color: SpinnerTheme.border.withOpacity(0.5)),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: _buildInlineResults(),
+          ),
+        ),
+      ],
     );
   }
 
@@ -386,6 +441,11 @@ class _ScanScreenState extends State<ScanScreen>
   // ---------------------------------------------------------------------------
 
   Widget _buildCoverScanTab() {
+    // After a scan finds multiple matches, show them inline here (not a modal
+    // sheet — that rendered blank). A "Scan again" action clears them.
+    if (_searchResults != null && _searchResults!.isNotEmpty) {
+      return _buildScanResults();
+    }
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 32),
