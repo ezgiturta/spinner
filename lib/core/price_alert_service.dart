@@ -29,10 +29,15 @@ class PriceAlertService {
     if (_ready) return;
     const androidInit =
         AndroidInitializationSettings('@mipmap/ic_launcher');
+    // Do NOT request permission here. This plugin initializes at app launch
+    // (checkOnce in main), and requesting on init pops the iOS permission
+    // dialog immediately — over the first onboarding screen, right after ATT.
+    // Permission is asked explicitly on the onboarding "Allow Notifications"
+    // step instead (see OnboardingScreen._requestNotifications).
     const iosInit = DarwinInitializationSettings(
-      requestAlertPermission: true,
-      requestBadgePermission: true,
-      requestSoundPermission: true,
+      requestAlertPermission: false,
+      requestBadgePermission: false,
+      requestSoundPermission: false,
     );
     await _plugin.initialize(
       const InitializationSettings(android: androidInit, iOS: iosInit),

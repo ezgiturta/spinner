@@ -152,6 +152,30 @@ class _ScanScreenState extends State<ScanScreen>
 
   static const _manualTab = 1;
 
+  /// Discogs search results put "Artist - Title" in a single `title` field with
+  /// NO separate artist, so records were saved as "Unknown Artist" and every
+  /// marketplace/story lookup searched the literal "Unknown Artist Artist -
+  /// Title" (which matches nothing on eBay/Reverb/Vinted). Split the title into
+  /// a real artist + clean title, and strip Discogs' "(2)" disambiguation tag.
+  Map<String, dynamic> _normalizeDiscogsResult(Map<String, dynamic> r) {
+    final raw = (r['title'] as String?)?.trim() ?? '';
+    var artist = (r['artist'] as String?)?.trim() ?? '';
+    var title = raw;
+    final idx = raw.indexOf(' - ');
+    if (idx > 0) {
+      artist = raw.substring(0, idx).trim();
+      title = raw.substring(idx + 3).trim();
+    }
+    // "Michael Jackson (2)" -> "Michael Jackson"
+    artist = artist.replaceAll(RegExp(r'\s*\(\d+\)$'), '').trim();
+    return {
+      ...r,
+      'artist': artist,
+      'title': title,
+      'discogs_id': (r['id'] as num?)?.toInt(),
+    };
+  }
+
   /// Raw search: Discogs first, then iTunes. Returns whatever it finds (may be
   /// empty); swallows errors so the caller can treat "nothing found" uniformly.
   Future<List<Map<String, dynamic>>> _runSearch(String query) async {
@@ -163,8 +187,7 @@ class _ScanScreenState extends State<ScanScreen>
         // saved record carries discogs_id and can later pull Discogs price
         // suggestions. iTunes results are left untagged (no discogs_id).
         results = [
-          for (final r in searchResult.results)
-            {...r, 'discogs_id': (r['id'] as num?)?.toInt()},
+          for (final r in searchResult.results) _normalizeDiscogsResult(r),
         ];
       } catch (_) {
         // Discogs failed; fall through to iTunes.

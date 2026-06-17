@@ -67,7 +67,14 @@ class ClaudeApi {
       if (label != null && label.isNotEmpty) 'label': label,
       if (country != null && country.isNotEmpty) 'country': country,
     };
-    final res = await _dio.post('$_baseUrl/story', data: jsonEncode(body));
+    // The story is a longer multi-paragraph generation and regularly takes
+    // 30-45s — well past the default 25s receiveTimeout (which surfaced as
+    // "Could not load story: DioException [receive timeout]"). Give it room.
+    final res = await _dio.post(
+      '$_baseUrl/story',
+      data: jsonEncode(body),
+      options: Options(receiveTimeout: const Duration(seconds: 70)),
+    );
     final data = _asMap(res.data);
     return AlbumStory.fromJson(data);
   }

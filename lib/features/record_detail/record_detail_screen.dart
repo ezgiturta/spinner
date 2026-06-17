@@ -411,7 +411,6 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
   Widget _buildValueCard(Map<String, dynamic> record) {
     final fmt = NumberFormat.currency(symbol: '\$', decimalDigits: 2);
     final lowValue = (record['low_value'] as num?)?.toDouble();
-    final medianValue = (record['median_value'] as num?)?.toDouble();
     final highValue = (record['high_value'] as num?)?.toDouble();
 
     return Container(
@@ -454,25 +453,22 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
             ],
           ),
           const SizedBox(height: 12),
+          // Min / Max range, not Low/Median/High. A "median" of a single
+          // Discogs price was meaningless (all three columns read the same
+          // number); collectors care about the real spread — cheapest copy to
+          // dearest — which can be $5 to $2,000 for the same pressing.
           Row(
             children: [
               Expanded(
                 child: _buildValueColumn(
-                  'Low',
+                  'Min',
                   lowValue != null ? fmt.format(lowValue) : '--',
                   SpinnerTheme.red,
                 ),
               ),
               Expanded(
                 child: _buildValueColumn(
-                  'Median',
-                  medianValue != null ? fmt.format(medianValue) : '--',
-                  SpinnerTheme.accent,
-                ),
-              ),
-              Expanded(
-                child: _buildValueColumn(
-                  'High',
+                  'Max',
                   highValue != null ? fmt.format(highValue) : '--',
                   SpinnerTheme.green,
                 ),

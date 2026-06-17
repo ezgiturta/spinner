@@ -106,9 +106,7 @@ class _OnboardingPaywallScreenState extends State<OnboardingPaywallScreen> {
       ScateSDK.OnboardingFinish();
     } catch (_) {}
     if (!mounted) return;
-    // Ask for notifications AFTER the paywall (better conversion than priming
-    // it during the onboarding questions), then land on home.
-    context.go('/notif-permission');
+    context.go('/home');
   }
 
   Future<void> _subscribe() async {
