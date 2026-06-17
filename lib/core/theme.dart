@@ -8,7 +8,10 @@ class SpinnerTheme {
   static const border = Color(0xFF333333);
   static const white = Colors.white;
   static const grey = Color(0xFF888888);
-  static const greyLight = Color(0xFF555555);
+  // Secondary body text on the dark background. Must be LIGHTER than `grey`,
+  // not darker — it was 0xFF555555 (darker than grey), which made story/grade
+  // body copy almost unreadable on black. Now a readable light grey.
+  static const greyLight = Color(0xFFC4C4C4);
   static const accent = Color(0xFF6C5CE7);
   static const green = Color(0xFF00B894);
   static const red = Color(0xFFE17055);

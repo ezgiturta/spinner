@@ -1281,13 +1281,14 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
           'View on Discogs',
           style: SpinnerTheme.nunito(
             size: 14,
-            weight: FontWeight.w600,
-            color: SpinnerTheme.greyLight,
+            weight: FontWeight.w700,
+            color: SpinnerTheme.accent,
           ),
         ),
         style: OutlinedButton.styleFrom(
-          foregroundColor: SpinnerTheme.greyLight,
-          side: BorderSide(color: SpinnerTheme.border),
+          foregroundColor: SpinnerTheme.accent,
+          backgroundColor: SpinnerTheme.accent.withOpacity(0.10),
+          side: BorderSide(color: SpinnerTheme.accent.withOpacity(0.55)),
           padding: const EdgeInsets.symmetric(vertical: 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),

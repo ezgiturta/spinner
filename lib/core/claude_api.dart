@@ -67,13 +67,12 @@ class ClaudeApi {
       if (label != null && label.isNotEmpty) 'label': label,
       if (country != null && country.isNotEmpty) 'country': country,
     };
-    // The story is a longer multi-paragraph generation and regularly takes
-    // 30-45s — well past the default 25s receiveTimeout (which surfaced as
-    // "Could not load story: DioException [receive timeout]"). Give it room.
+    // The proxy generates the story with Haiku and returns in ~10s; 35s leaves
+    // headroom while still failing fast (showing Retry) if it ever hangs.
     final res = await _dio.post(
       '$_baseUrl/story',
       data: jsonEncode(body),
-      options: Options(receiveTimeout: const Duration(seconds: 70)),
+      options: Options(receiveTimeout: const Duration(seconds: 35)),
     );
     final data = _asMap(res.data);
     return AlbumStory.fromJson(data);

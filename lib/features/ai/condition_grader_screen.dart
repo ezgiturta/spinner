@@ -124,6 +124,11 @@ class _ConditionGraderScreenState extends State<ConditionGraderScreen> {
           ),
         ),
       );
+      // Auto-return to the record page so the new grade shows there. The detail
+      // screen reloads its condition when the grader pops.
+      await Future<void>.delayed(const Duration(milliseconds: 700));
+      if (!mounted) return;
+      context.pop();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
