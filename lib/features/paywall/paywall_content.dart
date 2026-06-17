@@ -106,7 +106,7 @@ class PaywallContent extends StatelessWidget {
                     selected: selected == PaywallPlan.yearly,
                     onTap: () => onSelect(PaywallPlan.yearly),
                   ),
-                  const SizedBox(height: 8),
+                  // No gap here — each _PlanCard already reserves 8px on top.
                   _PlanCard(
                     title: 'Weekly',
                     price: _priceString(PaywallPlan.weekly),
@@ -409,10 +409,15 @@ class _PlanCard extends StatelessWidget {
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        GestureDetector(
-          onTap: onTap,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
+        Padding(
+          // Reserve identical top space on BOTH plan cards so their boxes are
+          // the same size. The SAVE badge drops into this space on the annual
+          // card only, instead of poking out above and making it look taller.
+          padding: const EdgeInsets.only(top: 8),
+          child: GestureDetector(
+            onTap: onTap,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               color: selected
@@ -492,10 +497,10 @@ class _PlanCard extends StatelessWidget {
               ],
             ),
           ),
-        ),
+        )),
         if (badge != null)
           Positioned(
-            top: -9,
+            top: 0,
             right: 16,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
