@@ -144,94 +144,44 @@ class PaywallContent extends StatelessWidget {
     );
   }
 
-  // ── Hero: synthwave sunset + vinyl ──
-  // No fixed height — it lives inside an Expanded and takes whatever vertical
-  // space is left after the fixed content below, shrinking on small phones.
+  // ── Hero: full-bleed lifestyle photo (Cardly/Draft style) ──
+  // A real turntable-and-collection photo that bleeds under the status bar and
+  // fades into the background, so the copy below reads cleanly. No fixed height
+  // — it lives inside an Expanded and shrinks on small phones.
   Widget _buildHero(BuildContext context) {
     return SizedBox(
       width: double.infinity,
       child: Stack(
         fit: StackFit.expand,
         children: [
-          Container(
-            decoration: const BoxDecoration(
+          Image.asset(
+            'assets/onboarding/vinyl4.webp',
+            fit: BoxFit.cover,
+            alignment: Alignment.center,
+            errorBuilder: (_, __, ___) => Container(
+              color: SpinnerTheme.surface,
+              alignment: Alignment.center,
+              child: const Icon(Icons.album, size: 72, color: SpinnerTheme.grey),
+            ),
+          ),
+          // Top scrim so the white close button stays visible over bright photo.
+          const DecoratedBox(
+            decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Color(0xFF120A24),
-                  Color(0xFF3A1C5E),
-                  Color(0xFF7A3D8F),
-                  Color(0xFFE8615F),
-                  Color(0xFFF2A65A),
+                  Color(0x66000000),
+                  Colors.transparent,
+                  Colors.transparent,
+                  SpinnerTheme.bg,
                 ],
-                stops: [0.0, 0.32, 0.55, 0.78, 1.0],
-              ),
-            ),
-          ),
-          Positioned(
-            top: 44,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: Container(
-                width: 150,
-                height: 150,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Color(0xFFFFC56B), Color(0xFFFF6B9D)],
-                  ),
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            top: 96,
-            left: 26,
-            child: Transform.rotate(angle: -0.32, child: _floatingSquare(58)),
-          ),
-          Positioned(
-            top: 110,
-            right: 26,
-            child: Transform.rotate(angle: 0.32, child: _floatingSquare(58)),
-          ),
-          const Center(child: _VinylDisc(size: 168)),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            height: 120,
-            child: Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Colors.transparent, SpinnerTheme.bg],
-                ),
+                stops: [0.0, 0.22, 0.55, 1.0],
               ),
             ),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _floatingSquare(double size) {
-    return Container(
-      width: size,
-      height: size * 1.18,
-      decoration: BoxDecoration(
-        color: SpinnerTheme.surface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: SpinnerTheme.accent.withOpacity(0.6)),
-        boxShadow: [
-          BoxShadow(color: SpinnerTheme.accent.withOpacity(0.35), blurRadius: 16),
-        ],
-      ),
-      child: const Icon(Icons.album, color: SpinnerTheme.grey, size: 22),
     );
   }
 
@@ -429,98 +379,6 @@ class PaywallContent extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-// ── Vinyl disc ──
-class _VinylDisc extends StatefulWidget {
-  final double size;
-  const _VinylDisc({required this.size});
-
-  @override
-  State<_VinylDisc> createState() => _VinylDiscState();
-}
-
-class _VinylDiscState extends State<_VinylDisc>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _spin;
-
-  @override
-  void initState() {
-    super.initState();
-    _spin = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 9),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _spin.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final size = widget.size;
-    return RotationTransition(
-      turns: _spin,
-      child: Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: const Color(0xFF0B0B0B),
-        border: Border.all(color: Colors.white.withOpacity(0.10), width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: SpinnerTheme.accent.withOpacity(0.45),
-            blurRadius: 40,
-            spreadRadius: 4,
-          ),
-          BoxShadow(
-            color: Colors.black.withOpacity(0.5),
-            blurRadius: 24,
-            spreadRadius: 2,
-          ),
-        ],
-      ),
-      child: Center(
-        child: Container(
-          width: size * 0.62,
-          height: size * 0.62,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.white.withOpacity(0.08), width: 1),
-          ),
-          child: Center(
-            child: Container(
-              width: size * 0.36,
-              height: size * 0.36,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  colors: [Color(0xFF6C5CE7), Color(0xFFE8615F)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-              ),
-              child: Center(
-                child: Container(
-                  width: size * 0.07,
-                  height: size * 0.07,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: SpinnerTheme.bg,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
       ),
     );
   }

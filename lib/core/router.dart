@@ -6,6 +6,7 @@ import '../features/ai/condition_grader_screen.dart';
 import '../features/home/home_screen.dart';
 import '../features/scan/scan_screen.dart';
 import '../features/collection/collection_wrapper.dart';
+import '../features/onboarding/notif_permission_screen.dart';
 import '../features/onboarding/onboarding_paywall_screen.dart';
 import '../features/onboarding/onboarding_screen.dart';
 import '../features/paywall/paywall_screen.dart';
@@ -22,6 +23,7 @@ abstract class AppRoutes {
   static const record = '/record/:id';
   static const onboarding = '/onboarding';
   static const onboardingPaywall = '/onboarding-paywall';
+  static const notifPermission = '/notif-permission';
   static const paywall = '/paywall';
   static const settings = '/settings';
   static const grade = '/grade/:id';
@@ -53,6 +55,11 @@ GoRouter buildRouter(SharedPreferences prefs) {
         path: AppRoutes.onboardingPaywall,
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => const OnboardingPaywallScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.notifPermission,
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const NotifPermissionScreen(),
       ),
       GoRoute(
         path: AppRoutes.paywall,

@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:go_router/go_router.dart';
 import 'package:scatesdk_flutter/scatesdk_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -9,10 +8,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/theme.dart';
 
 /// Cardly-style onboarding funnel:
-///   showcase x3 -> experience -> genre -> goals -> notifications ->
-///   "personalizing" loader -> rating -> paywall.
-/// Every step shares the same pinned bottom button position so onboarding and
-/// the paywall feel like one continuous flow.
+///   showcase x3 -> experience -> genre -> goals ->
+///   "personalizing" loader -> rating -> paywall -> notifications.
+/// Notifications are asked AFTER the paywall (see NotifPermissionScreen), which
+/// converts better than priming the permission mid-funnel. Every step shares
+/// the same pinned bottom button position so onboarding and the paywall feel
+/// like one continuous flow.
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
 
@@ -24,13 +25,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final _pageController = PageController();
   int _currentPage = 0;
 
-  static const _totalPages = 9;
+  static const _totalPages = 8;
   static const _experiencePage = 3;
   static const _genrePage = 4;
   static const _goalsPage = 5;
-  static const _notifPage = 6;
-  static const _loadingPage = 7;
-  static const _ratingPage = 8;
+  static const _loadingPage = 6;
+  static const _ratingPage = 7;
 
   String? _experience;
   final Set<String> _selectedGenres = {};
@@ -91,15 +91,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     }
   }
 
-  String get _primaryLabel {
-    if (_currentPage == _notifPage) return 'Allow Notifications';
-    return 'Continue';
-  }
+  String get _primaryLabel => 'Continue';
 
   Future<void> _onPrimary() async {
-    if (_currentPage == _notifPage) {
-      await _requestNotifications();
-    }
     if (_currentPage == _ratingPage) {
       await _completeOnboarding();
       return;
@@ -118,17 +112,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         duration: const Duration(milliseconds: 320),
         curve: Curves.easeInOut,
       );
-    }
-  }
-
-  Future<void> _requestNotifications() async {
-    try {
-      final ios = FlutterLocalNotificationsPlugin()
-          .resolvePlatformSpecificImplementation<
-              IOSFlutterLocalNotificationsPlugin>();
-      await ios?.requestPermissions(alert: true, badge: true, sound: true);
-    } catch (_) {
-      // Permission denial / unsupported platform must never block onboarding.
     }
   }
 
@@ -202,7 +185,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   _buildExperience(),
                   _buildGenres(),
                   _buildGoals(),
-                  _buildNotif(),
                   _buildLoading(),
                   _buildRating(),
                 ],
@@ -406,117 +388,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 }),
               ),
             ),
-        ],
-      ),
-    );
-  }
-
-  // ── Notifications ───────────────────────────────────────────────────
-
-  Widget _buildNotif() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 28),
-      child: Column(
-        children: [
-          const SizedBox(height: 40),
-          Container(
-            width: 96,
-            height: 96,
-            decoration: BoxDecoration(
-              color: SpinnerTheme.accent.withOpacity(0.15),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.notifications_active_rounded,
-                color: SpinnerTheme.accent, size: 48),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            'Never miss a drop',
-            textAlign: TextAlign.center,
-            style: SpinnerTheme.nunito(
-              size: 26,
-              weight: FontWeight.w800,
-              color: SpinnerTheme.white,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'Turn on alerts so you hear the moment a record drops in price or '
-            'your collection jumps in value.',
-            textAlign: TextAlign.center,
-            style: SpinnerTheme.nunito(
-              size: 15,
-              weight: FontWeight.w400,
-              color: SpinnerTheme.grey,
-              height: 1.5,
-            ),
-          ),
-          const SizedBox(height: 28),
-          _notifPreview('💰', 'Price drop',
-              'Kind of Blue just dropped to \$32 on Discogs'),
-          _notifPreview('📈', 'Collection up',
-              'Your collection gained \$48 this week'),
-          _notifPreview('🔔', 'Wishlist hit',
-              'A near-mint copy of Rumours is now \$25'),
-        ],
-      ),
-    );
-  }
-
-  // Faux iOS push banner used to prime the notification permission.
-  Widget _notifPreview(String emoji, String title, String body) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.25), blurRadius: 12),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: SpinnerTheme.accent,
-              borderRadius: BorderRadius.circular(9),
-            ),
-            alignment: Alignment.center,
-            child: Text(emoji, style: const TextStyle(fontSize: 20)),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: SpinnerTheme.nunito(
-                          size: 13,
-                          weight: FontWeight.w800,
-                          color: Colors.black,
-                        ),
-                      ),
-                    ),
-                    Text('now',
-                        style: SpinnerTheme.nunito(
-                            size: 11, color: Colors.black45)),
-                  ],
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  body,
-                  style: SpinnerTheme.nunito(size: 13, color: Colors.black87),
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     );

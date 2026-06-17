@@ -250,14 +250,9 @@ class _ScanScreenState extends State<ScanScreen>
         'artist': artist,
         'year': year,
         'cover_url': coverUrl,
-        // genre may be a List (Discogs) or String (iTunes); whereType skips any
-        // non-string entries safely (cast<String>() would throw on those).
-        'genre': () {
-          final g = result['genre'];
-          if (g is List) return g.whereType<String>().join(', ');
-          if (g is String) return g;
-          return '';
-        }(),
+        // NOTE: do NOT insert a 'genre' key — the records table has no genre
+        // column, and sqflite's db.insert throws "no column named genre",
+        // which surfaced as "Could not open this record" on every tap.
         'in_collection': 1,
         'in_wantlist': 0,
         'synced_at': DateTime.now().toIso8601String(),
