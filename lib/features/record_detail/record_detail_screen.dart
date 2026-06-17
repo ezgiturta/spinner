@@ -453,34 +453,49 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          // Min / Max range, not Low/Median/High. A "median" of a single
-          // Discogs price was meaningless (all three columns read the same
-          // number); collectors care about the real spread — cheapest copy to
-          // dearest — which can be $5 to $2,000 for the same pressing.
-          Row(
-            children: [
-              Expanded(
-                child: _buildValueColumn(
-                  'Min',
-                  lowValue != null ? fmt.format(lowValue) : '--',
-                  SpinnerTheme.red,
+          // When eBay/Reverb return listings we have a real spread, so show
+          // Min/Max. When only Discogs answers (a single lowest_price), Min
+          // would equal Max and look broken — show one honest figure instead,
+          // labelled as the Discogs floor.
+          if (_hasRange(lowValue, highValue))
+            Row(
+              children: [
+                Expanded(
+                  child: _buildValueColumn(
+                    'Min',
+                    fmt.format(lowValue),
+                    SpinnerTheme.red,
+                  ),
                 ),
-              ),
-              Expanded(
-                child: _buildValueColumn(
-                  'Max',
-                  highValue != null ? fmt.format(highValue) : '--',
-                  SpinnerTheme.green,
+                Expanded(
+                  child: _buildValueColumn(
+                    'Max',
+                    fmt.format(highValue),
+                    SpinnerTheme.green,
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            )
+          else
+            _buildValueColumn(
+              'Lowest copy',
+              lowValue != null ? fmt.format(lowValue) : '--',
+              SpinnerTheme.accent,
+              caption: 'cheapest listing found',
+            ),
         ],
       ),
     );
   }
 
-  Widget _buildValueColumn(String label, String value, Color color) {
+  // True only when we have two distinct prices (a genuine low→high spread).
+  bool _hasRange(double? low, double? high) {
+    if (low == null || high == null) return false;
+    return (high - low).abs() >= 0.01;
+  }
+
+  Widget _buildValueColumn(String label, String value, Color color,
+      {String? caption}) {
     return Column(
       children: [
         Text(
@@ -496,6 +511,13 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
             color: color,
           ),
         ),
+        if (caption != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            caption,
+            style: SpinnerTheme.nunito(size: 11, color: SpinnerTheme.grey),
+          ),
+        ],
       ],
     );
   }
