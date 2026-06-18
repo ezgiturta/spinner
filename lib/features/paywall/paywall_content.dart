@@ -96,7 +96,7 @@ class PaywallContent extends StatelessWidget {
                   _buildFeatures(),
                   const SizedBox(height: 10),
                   _buildSocialProof(),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 12),
                   _PlanCard(
                     title: 'Annual',
                     price: _priceString(PaywallPlan.yearly),
@@ -233,50 +233,50 @@ class PaywallContent extends StatelessWidget {
   // Matches Draft: a fully-rounded green pill with a clean downward triangle
   // tail (CustomPaint, not a rotated square), centered just above the plans.
   Widget _buildSocialProof() {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
-            decoration: BoxDecoration(
-              color: SpinnerTheme.green,
-              borderRadius: BorderRadius.circular(999),
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF1DD1A1), Color(0xFF00B894)],
             ),
-            child: Text.rich(
-              TextSpan(
-                children: [
-                  TextSpan(
-                    text: '2,847',
-                    style: SpinnerTheme.nunito(
-                      size: 13,
-                      weight: FontWeight.w800,
-                      color: Colors.black,
-                    ),
-                  ),
-                  TextSpan(
-                    text: ' collectors joined this plan ',
-                    style: SpinnerTheme.nunito(
-                      size: 13,
-                      weight: FontWeight.w600,
-                      color: Colors.black,
-                    ),
-                  ),
-                  TextSpan(
-                    text: 'today',
-                    style: SpinnerTheme.nunito(
-                      size: 13,
-                      weight: FontWeight.w800,
-                      color: Colors.black,
-                    ),
-                  ),
-                ],
-              ),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Text.rich(
+            textAlign: TextAlign.center,
+            TextSpan(
+              children: [
+                TextSpan(
+                  text: '2,847',
+                  style: SpinnerTheme.nunito(
+                      size: 13, weight: FontWeight.w800, color: Colors.black),
+                ),
+                TextSpan(
+                  text: ' collectors have joined this plan ',
+                  style: SpinnerTheme.nunito(
+                      size: 13, weight: FontWeight.w600, color: Colors.black),
+                ),
+                TextSpan(
+                  text: 'today!',
+                  style: SpinnerTheme.nunito(
+                      size: 13, weight: FontWeight.w800, color: Colors.black),
+                ),
+              ],
             ),
           ),
-          CustomPaint(size: const Size(18, 8), painter: _BubbleTailPainter()),
-        ],
-      ),
+        ),
+        Positioned(
+          left: 30,
+          bottom: -7,
+          child: CustomPaint(
+              size: const Size(18, 8), painter: _BubbleTailPainter()),
+        ),
+      ],
     );
   }
 
