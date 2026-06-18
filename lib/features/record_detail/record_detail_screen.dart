@@ -198,14 +198,15 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
       return;
     }
     final record = _record;
-    context.push(
+    // Await the push so the refresh runs AFTER the grader pops — otherwise it
+    // reloaded the old condition before the applied grade was saved.
+    await context.push(
       AppRoutes.gradePath(widget.recordId),
       extra: {
         'title': record?['title'] as String?,
         'artist': record?['artist'] as String?,
       },
     );
-    // When the grader returns, refresh in case condition was applied.
     if (mounted) _loadRecord();
   }
 
