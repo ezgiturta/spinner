@@ -433,7 +433,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ),
           const SizedBox(height: 24),
           Text(
-            'Never miss a drop',
+            'Turn on notifications',
             textAlign: TextAlign.center,
             style: SpinnerTheme.nunito(
               size: 26,
@@ -443,7 +443,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ),
           const SizedBox(height: 10),
           Text(
-            'Turn on alerts so you hear the moment a record drops in price or '
+            'Get an alert the moment a record drops in price or '
             'your collection jumps in value.',
             textAlign: TextAlign.center,
             style: SpinnerTheme.nunito(
