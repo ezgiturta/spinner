@@ -184,6 +184,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final info = await Purchases.restorePurchases();
       if (!mounted) return;
       final hasActive = info.entitlements.active.isNotEmpty;
+      // Refresh the Subscription section so it shows Active, not stale "Upgrade".
+      if (hasActive) _checkPro();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
