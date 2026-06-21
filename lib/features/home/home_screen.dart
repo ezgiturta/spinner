@@ -82,8 +82,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // Scanning is free; the paywall appears after identify, when the result is
   // revealed (see ScanScreen._saveAndNavigate).
-  void _openScan() {
-    context.push('/scan');
+  Future<void> _openScan() async {
+    await context.push('/scan');
+    // A scan may have added a record / changed Pro state — refresh on return.
+    if (mounted) _loadData();
   }
 
   Future<void> _openMood() async {
@@ -130,7 +132,11 @@ class _HomeScreenState extends State<HomeScreen> {
     // just a status pill.
     if (_isPro) return badge;
     return GestureDetector(
-      onTap: () => context.push('/paywall'),
+      onTap: () async {
+        await context.push('/paywall');
+        // Subscribing flips Pro state — refresh so the badge/stats update.
+        if (mounted) _loadData();
+      },
       child: badge,
     );
   }

@@ -45,7 +45,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
   bool _isSigned = false;
   bool _isNumbered = false;
 
-  static const _conditions = ['NM', 'VG+', 'VG', 'G+', 'G', 'F', 'P'];
+  static const _conditions = ['M', 'NM', 'VG+', 'VG', 'G+', 'G', 'F', 'P'];
 
   @override
   void initState() {
@@ -951,7 +951,9 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
 
   Widget _buildConditionDropdown() {
     return DropdownButtonFormField<String>(
-      value: _selectedCondition,
+      // Guard against a saved value not in the list (e.g. an AI grade like "?")
+      // which would otherwise crash the dropdown.
+      value: _conditions.contains(_selectedCondition) ? _selectedCondition : null,
       dropdownColor: SpinnerTheme.surface,
       style: SpinnerTheme.nunito(size: 14, color: SpinnerTheme.white),
       decoration: InputDecoration(

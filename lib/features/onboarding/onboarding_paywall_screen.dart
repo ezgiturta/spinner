@@ -110,15 +110,24 @@ class _OnboardingPaywallScreenState extends State<OnboardingPaywallScreen> {
   }
 
   Future<void> _subscribe() async {
-    final pkg = _selected == PaywallPlan.weekly ? _weeklyPkg : _yearlyPkg;
-    if (pkg == null) {
-      setState(() => _error = 'Plan not available. Please try again later.');
-      return;
-    }
     setState(() {
       _loading = true;
       _error = null;
     });
+    // On a fast first tap the offerings may still be loading; wait for them
+    // rather than showing "Plan not available" until a second tap.
+    if (_weeklyPkg == null && _yearlyPkg == null) {
+      await _loadOfferings();
+    }
+    final pkg = _selected == PaywallPlan.weekly ? _weeklyPkg : _yearlyPkg;
+    if (pkg == null) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = 'Plan not available. Please try again later.';
+      });
+      return;
+    }
     try {
       // Opens the native StoreKit purchase sheet.
       await Purchases.purchasePackage(pkg);
