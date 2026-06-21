@@ -86,6 +86,9 @@ class ClaudeApi {
     final bytes = await coverImage.readAsBytes();
     final res = await _dio.post(
       '$_baseUrl/identify-cover',
+      // Vision + a base64 upload over a slow connection can exceed the default
+      // 25s receive timeout; give it the same headroom as the story call.
+      options: Options(receiveTimeout: const Duration(seconds: 35)),
       data: jsonEncode({
         'imageBase64': base64Encode(bytes),
         'mediaType': _mediaTypeForPath(coverImage.path),
