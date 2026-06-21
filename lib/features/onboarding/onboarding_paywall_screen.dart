@@ -130,8 +130,18 @@ class _OnboardingPaywallScreenState extends State<OnboardingPaywallScreen> {
     }
     try {
       // Opens the native StoreKit purchase sheet.
-      await Purchases.purchasePackage(pkg);
+      final info = await Purchases.purchasePackage(pkg);
       if (!mounted) return;
+      // Only finish if the entitlement is actually active. A deferred purchase
+      // (Ask-to-Buy / SCA / family approval) returns with no active
+      // entitlement, so don't drop a non-Pro user into the app.
+      if (info.entitlements.active.isEmpty) {
+        setState(() {
+          _loading = false;
+          _error = 'Your purchase is pending approval. You can continue once it is approved.';
+        });
+        return;
+      }
       await _exit();
     } on PlatformException catch (e) {
       final code = PurchasesErrorHelper.getErrorCode(e);

@@ -115,8 +115,17 @@ class _PaywallScreenState extends State<PaywallScreen> {
     }
     try {
       // Opens the native StoreKit purchase sheet.
-      await Purchases.purchasePackage(pkg);
+      final info = await Purchases.purchasePackage(pkg);
       if (!mounted) return;
+      // A deferred purchase returns with no active entitlement; don't treat it
+      // as success or the user lands in the app still non-Pro.
+      if (info.entitlements.active.isEmpty) {
+        setState(() {
+          _loading = false;
+          _error = 'Your purchase is pending approval.';
+        });
+        return;
+      }
       Navigator.of(context).pop(true);
     } on PlatformException catch (e) {
       final code = PurchasesErrorHelper.getErrorCode(e);
