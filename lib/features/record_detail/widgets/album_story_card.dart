@@ -148,7 +148,7 @@ class _AlbumStoryCardState extends State<AlbumStoryCard> {
                         Text(
                           _story != null
                               ? 'Tap to ${_expanded ? "collapse" : "read"}'
-                              : 'AI-generated context, deep cuts, and rare pressings',
+                              : 'Learn the story behind this vinyl',
                           style: SpinnerTheme.nunito(
                               size: 12, color: SpinnerTheme.grey),
                         ),
@@ -188,7 +188,7 @@ class _AlbumStoryCardState extends State<AlbumStoryCard> {
                   strokeWidth: 2, color: SpinnerTheme.accent),
             ),
             const SizedBox(width: 10),
-            Text('Writing the story…',
+            Text('Finding the story…',
                 style:
                     SpinnerTheme.nunito(size: 13, color: SpinnerTheme.grey)),
           ],

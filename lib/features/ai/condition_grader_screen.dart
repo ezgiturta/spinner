@@ -104,12 +104,33 @@ class _ConditionGraderScreenState extends State<ConditionGraderScreen> {
     }
   }
 
+  /// Maps a free-form AI grade (e.g. "Near Mint", "M-", "VG plus") onto the
+  /// canonical Goldmine codes the record's Condition dropdown understands, so
+  /// the applied grade actually shows up there instead of silently dropping to
+  /// blank (the dropdown ignores any value not in its list).
+  String _canonicalCondition(String raw) {
+    final r = raw.toUpperCase().replaceAll(RegExp(r'[()]'), ' ').trim();
+    bool has(String s) => r.contains(s);
+    if (has('NEAR MINT') || r == 'M-' || r == 'NM') return 'NM';
+    if (has('VERY GOOD PLUS') || has('VG+') || has('VG PLUS')) return 'VG+';
+    if (has('VERY GOOD') || r == 'VG') return 'VG';
+    if (has('GOOD PLUS') || has('G+')) return 'G+';
+    if (has('MINT') || r == 'M') return 'M';
+    if (has('FAIR') || r == 'F') return 'F';
+    if (has('POOR') || r == 'P') return 'P';
+    if (has('GOOD') || r == 'G') return 'G';
+    // Already a clean code? keep it. Otherwise fall back to the raw string
+    // (no worse than before; the dropdown just won't preselect it).
+    return raw.trim();
+  }
+
   Future<void> _applyToRecord() async {
     final grade = _result;
     if (grade == null) return;
+    final code = _canonicalCondition(grade.rating);
     try {
       await AppDatabase.updateRecord(widget.recordId, {
-        'condition': grade.rating,
+        'condition': code,
       });
       if (!mounted) return;
       setState(() => _applied = true);
@@ -118,7 +139,7 @@ class _ConditionGraderScreenState extends State<ConditionGraderScreen> {
           backgroundColor: SpinnerTheme.green,
           duration: const Duration(seconds: 2),
           content: Text(
-            'Condition updated to ${grade.rating}',
+            'Condition updated to $code',
             style: SpinnerTheme.nunito(
               size: 13, weight: FontWeight.w600, color: SpinnerTheme.white),
           ),
