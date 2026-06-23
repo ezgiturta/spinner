@@ -468,6 +468,8 @@ class _ConditionGraderScreenState extends State<ConditionGraderScreen> {
             ),
           ],
           const SizedBox(height: 18),
+          // Always allow saving, whatever the grade is (including "?"). Retake
+          // stays available above; this just writes the result to the record.
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
@@ -478,16 +480,20 @@ class _ConditionGraderScreenState extends State<ConditionGraderScreen> {
                 disabledBackgroundColor: SpinnerTheme.green,
                 foregroundColor: SpinnerTheme.white,
                 padding: const EdgeInsets.symmetric(vertical: 12),
-                shape:
-                    RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
               ),
               icon: Icon(
                   _applied ? Icons.check_circle : Icons.save_outlined,
                   size: 16),
               label: Text(
-                _applied ? 'Saved to record' : 'Apply ${grade.rating} to record',
+                _applied
+                    ? 'Saved to record'
+                    : 'Apply ${_canonicalCondition(grade.rating)} to record',
                 style: SpinnerTheme.nunito(
-                    size: 14, weight: FontWeight.w700, color: SpinnerTheme.white),
+                    size: 14,
+                    weight: FontWeight.w700,
+                    color: SpinnerTheme.white),
               ),
             ),
           ),

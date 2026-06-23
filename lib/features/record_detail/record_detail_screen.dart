@@ -950,10 +950,16 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
   }
 
   Widget _buildConditionDropdown() {
+    // Show whatever was saved, even a non-standard AI grade like "?", instead of
+    // going blank. We add it as an extra item so the dropdown can display it
+    // (a value not present in `items` would otherwise crash the dropdown).
+    final sel = _selectedCondition;
+    final options = [
+      ..._conditions,
+      if (sel != null && sel.isNotEmpty && !_conditions.contains(sel)) sel,
+    ];
     return DropdownButtonFormField<String>(
-      // Guard against a saved value not in the list (e.g. an AI grade like "?")
-      // which would otherwise crash the dropdown.
-      value: _conditions.contains(_selectedCondition) ? _selectedCondition : null,
+      value: (sel != null && sel.isNotEmpty) ? sel : null,
       dropdownColor: SpinnerTheme.surface,
       style: SpinnerTheme.nunito(size: 14, color: SpinnerTheme.white),
       decoration: InputDecoration(
@@ -974,7 +980,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
           borderSide: BorderSide(color: SpinnerTheme.accent, width: 1.5),
         ),
       ),
-      items: _conditions.map((c) {
+      items: options.map((c) {
         final label = switch (c) {
           'NM' => 'NM (Near Mint)',
           'VG+' => 'VG+ (Very Good Plus)',
@@ -983,6 +989,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
           'G' => 'G (Good)',
           'F' => 'F (Fair)',
           'P' => 'P (Poor)',
+          '?' => '? (not graded)',
           _ => c,
         };
         return DropdownMenuItem(value: c, child: Text(label));
