@@ -128,9 +128,9 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
     );
-    // When not subscribed the badge opens the paywall; when subscribed it is
-    // just a status pill.
-    if (_isPro) return badge;
+    // The badge exists only to give free users a way into the paywall. Once
+    // subscribed there's nothing to upsell, so hide it entirely.
+    if (_isPro) return const SizedBox.shrink();
     return GestureDetector(
       onTap: () async {
         await context.push('/paywall');

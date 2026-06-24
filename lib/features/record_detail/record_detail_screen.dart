@@ -19,7 +19,6 @@ import '../../core/reverb_api.dart';
 import '../../core/spotify_api.dart';
 import '../../core/router.dart';
 import '../../core/theme.dart';
-import 'widgets/album_story_card.dart';
 
 class RecordDetailScreen extends StatefulWidget {
   final String recordId;
@@ -315,15 +314,6 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
           _SpotifyRecsCard(record: record),
           const SizedBox(height: 20),
           _buildPriceChart(record),
-          const SizedBox(height: 20),
-          AlbumStoryCard(
-            recordId: widget.recordId,
-            title: (record['title'] as String?) ?? '',
-            artist: (record['artist'] as String?) ?? '',
-            year: record['year'] as int?,
-            label: record['label'] as String?,
-            country: record['pressing_country'] as String?,
-          ),
           const SizedBox(height: 20),
           _buildPressingDetails(record),
           const SizedBox(height: 20),
