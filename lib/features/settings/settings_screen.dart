@@ -33,9 +33,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String? _discogsUsername;
   bool _isPro = false;
 
-  // Hidden QA: tapping the version label 7 times opens the testing panel.
-  int _versionTaps = 0;
-
   @override
   void initState() {
     super.initState();
@@ -348,79 +345,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  // Hidden testing panel (reached by tapping the version label 7 times). Lets
-  // the team re-test the gated/paywall flow without a fresh user: force the
-  // free experience on/off, and replay onboarding. Not visible to normal users.
-  Future<void> _showQaPanel() async {
-    var forceFree = await AiAccess.qaForceFree();
-    if (!mounted) return;
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setLocal) => AlertDialog(
-          backgroundColor: SpinnerTheme.surface,
-          title: Text('QA · Testing',
-              style: SpinnerTheme.nunito(
-                  size: 18, weight: FontWeight.w700, color: SpinnerTheme.white)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                value: forceFree,
-                activeColor: SpinnerTheme.accent,
-                title: Text('Force free (show paywall)',
-                    style: SpinnerTheme.nunito(
-                        size: 14,
-                        weight: FontWeight.w600,
-                        color: SpinnerTheme.white)),
-                subtitle: Text(
-                    'Treat as not-Pro so gates and the paywall reappear, even '
-                    'after a sandbox purchase.',
-                    style:
-                        SpinnerTheme.nunito(size: 12, color: SpinnerTheme.grey)),
-                onChanged: (v) async {
-                  await AiAccess.setQaForceFree(v);
-                  setLocal(() => forceFree = v);
-                  if (mounted) _checkPro();
-                },
-              ),
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  icon: const Icon(Icons.replay, size: 16),
-                  label: Text('Replay onboarding',
-                      style: SpinnerTheme.nunito(
-                          size: 14, weight: FontWeight.w600)),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: SpinnerTheme.accent,
-                    side: BorderSide(color: SpinnerTheme.accent.withOpacity(0.5)),
-                  ),
-                  onPressed: () async {
-                    final prefs = await SharedPreferences.getInstance();
-                    await prefs.setBool('onboarding_complete', false);
-                    if (!ctx.mounted) return;
-                    Navigator.of(ctx).pop();
-                    context.go(AppRoutes.onboarding);
-                  },
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: Text('Close',
-                  style: SpinnerTheme.nunito(
-                      size: 14, color: SpinnerTheme.grey)),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -524,21 +448,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
             trailing: Icon(Icons.open_in_new, color: SpinnerTheme.grey, size: 18),
             onTap: () => _openUrl('https://spinner-legal.vercel.app/terms'),
           ),
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () {
-              _versionTaps++;
-              if (_versionTaps >= 7) {
-                _versionTaps = 0;
-                _showQaPanel();
-              }
-            },
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-              child: Text(
-                'Version 1.0.0',
-                style: SpinnerTheme.nunito(size: 13, color: SpinnerTheme.grey),
-              ),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+            child: Text(
+              'Version 1.0.0',
+              style: SpinnerTheme.nunito(size: 13, color: SpinnerTheme.grey),
             ),
           ),
 

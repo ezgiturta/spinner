@@ -14,21 +14,6 @@ class AiAccess {
   static const _kStory = 'ai_uses_story';
   static const _kMood = 'ai_uses_mood';
 
-  // QA only: when set via the hidden testing panel, every entitlement check
-  // reports the user as NOT Pro, so the paywall/gates reappear even after a
-  // (sandbox) purchase. Invisible to normal users.
-  static const _kQaForceFree = 'qa_force_free';
-
-  static Future<bool> qaForceFree() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_kQaForceFree) ?? false;
-  }
-
-  static Future<void> setQaForceFree(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_kQaForceFree, value);
-  }
-
   static const freeConditionUses = 0;
   static const freeStoryUses = 0;
   static const freeMoodUses = 0;
@@ -42,9 +27,6 @@ class AiAccess {
   static bool? _lastKnownPro;
 
   static Future<bool> isPro() async {
-    // QA override: force the locked/free experience for testing.
-    final prefs = await SharedPreferences.getInstance();
-    if (prefs.getBool(_kQaForceFree) ?? false) return false;
     try {
       final info = await Purchases.getCustomerInfo();
       final pro = info.entitlements.active.isNotEmpty;
