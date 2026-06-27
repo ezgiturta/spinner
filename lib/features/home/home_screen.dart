@@ -191,10 +191,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           _buildProBadge(),
-          IconButton(
-            icon: const Icon(Icons.settings, color: SpinnerTheme.grey),
-            onPressed: () => context.push('/settings'),
-          ),
         ],
       ),
     );

@@ -1,10 +1,12 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/database.dart';
+import '../../core/router.dart';
 import '../../core/discogs_api.dart';
 import '../../core/theme.dart';
 
@@ -118,11 +120,10 @@ class _ValueRevealScreenState extends State<ValueRevealScreen> {
       }
 
       if (!mounted) return;
-      setState(() {
-        _inCollection = true;
-        _addingToCollection = false;
-      });
       _showSnackBar('Added to collection');
+      // Jump straight to the collection so the user sees the saved record
+      // instead of being stranded here, backing out of the scan stack.
+      context.go(AppRoutes.collection);
     } catch (e) {
       if (!mounted) return;
       setState(() => _addingToCollection = false);
