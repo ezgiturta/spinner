@@ -26,13 +26,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final _pageController = PageController();
   int _currentPage = 0;
 
-  static const _totalPages = 9;
+  static const _totalPages = 8;
   static const _experiencePage = 3;
   static const _genrePage = 4;
   static const _goalsPage = 5;
   static const _notifPage = 6;
   static const _loadingPage = 7;
-  static const _ratingPage = 8;
 
   String? _experience;
   final Set<String> _selectedGenres = {};
@@ -102,10 +101,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     if (_currentPage == _notifPage) {
       await _requestNotifications();
     }
-    if (_currentPage == _ratingPage) {
-      await _completeOnboarding();
-      return;
-    }
     if (_currentPage < _totalPages - 1) {
       await _pageController.nextPage(
         duration: const Duration(milliseconds: 320),
@@ -137,13 +132,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   void _onPageChanged(int page) {
     setState(() => _currentPage = page);
     if (page == _loadingPage) {
-      // "Personalizing" interstitial — auto-advance to the rating step.
+      // "Personalizing" interstitial is now the last step. When it finishes,
+      // go straight to the paywall (the rating step was removed).
       Future<void>.delayed(const Duration(milliseconds: 2600), () {
         if (mounted && _currentPage == _loadingPage) {
-          _pageController.nextPage(
-            duration: const Duration(milliseconds: 320),
-            curve: Curves.easeInOut,
-          );
+          _completeOnboarding();
         }
       });
     }
@@ -206,7 +199,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   _buildGoals(),
                   _buildNotif(),
                   _buildLoading(),
-                  _buildRating(),
                 ],
               ),
             ),
@@ -610,151 +602,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               valueColor:
                   const AlwaysStoppedAnimation<Color>(SpinnerTheme.accent),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── Rating ──────────────────────────────────────────────────────────
-
-  Widget _buildRating() {
-    // Center the whole block vertically (balanced top/bottom space, no dead
-    // gap) with tight, controlled spacing between groups — only a small gap
-    // between the stats and the first review.
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: constraints.maxHeight - 40),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(
-                    5,
-                    (_) => const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 3),
-                      child: Icon(Icons.star_rounded,
-                          color: SpinnerTheme.amber, size: 36),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 28),
-                Column(
-                  children: [
-                    Text(
-                      'Loved by vinyl collectors',
-                      textAlign: TextAlign.center,
-                      style: SpinnerTheme.nunito(
-                        size: 24,
-                        weight: FontWeight.w800,
-                        color: SpinnerTheme.white,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Column(
-                          children: [
-                            Text('4.8',
-                                style: SpinnerTheme.nunito(
-                                    size: 30,
-                                    weight: FontWeight.w800,
-                                    color: SpinnerTheme.white)),
-                            Text('average rating',
-                                style: SpinnerTheme.nunito(
-                                    size: 13, color: SpinnerTheme.grey)),
-                          ],
-                        ),
-                        Container(
-                          width: 1,
-                          height: 44,
-                          margin: const EdgeInsets.symmetric(horizontal: 28),
-                          color: SpinnerTheme.border,
-                        ),
-                        Column(
-                          children: [
-                            Text('thousands',
-                                style: SpinnerTheme.nunito(
-                                    size: 30,
-                                    weight: FontWeight.w800,
-                                    color: SpinnerTheme.white)),
-                            Text('of collectors',
-                                style: SpinnerTheme.nunito(
-                                    size: 13, color: SpinnerTheme.grey)),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                Column(
-                  children: [
-                    _testimonial(
-                      'Scanned my whole shelf in an afternoon and finally know '
-                      'what it\'s worth. The price alerts already saved me money.',
-                      'Dave R.',
-                    ),
-                    const SizedBox(height: 12),
-                    _testimonial(
-                      'The AI condition grading is scary accurate. Best vinyl '
-                      'app I\'ve tried, hands down.',
-                      'Mara K.',
-                    ),
-                    const SizedBox(height: 12),
-                    _testimonial(
-                      'Finally a clean way to catalog my collection and see what '
-                      'it\'s actually worth. Worth every penny.',
-                      'Theo S.',
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _testimonial(String quote, String author) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: SpinnerTheme.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: SpinnerTheme.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: List.generate(
-              5,
-              (_) => const Icon(Icons.star_rounded,
-                  color: SpinnerTheme.amber, size: 15),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            quote,
-            style: SpinnerTheme.nunito(
-              size: 14,
-              weight: FontWeight.w500,
-              color: SpinnerTheme.white,
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            author,
-            style: SpinnerTheme.nunito(size: 12, color: SpinnerTheme.grey),
           ),
         ],
       ),
