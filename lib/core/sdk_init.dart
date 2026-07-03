@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:developer';
 import 'dart:io';
 
@@ -109,13 +110,51 @@ class SdkInit {
       } catch (e) {
         log('ScateSDK.SetAdid failed: $e', name: 'SdkInit');
       }
-      // AdjustSetToRevenuecat marks the lifecycle step Scate expects; the
-      // actual ID forwarding happens via the Adjust→RC server-side webhook.
+      // Set the Adjust ID on RevenueCat as the reserved $adjustId attribute so
+      // it rides along in the RevenueCat webhook payload (RevenueCat -> Scate ->
+      // Adjust) and shows on the RevenueCat customer. We do this over the REST
+      // API instead of Purchases.setAdjustID(), because the native set* methods
+      // crash (uncatchable) on purchases_flutter v8. Pure HTTP: cannot crash.
+      await _setRevenueCatAdjustId(adid);
+      // AdjustSetToRevenuecat marks the lifecycle step Scate expects.
       try {
         ScateSDK.AdjustSetToRevenuecat();
       } catch (_) {}
     } catch (e) {
       log('Forward Adjust ID failed: $e', name: 'SdkInit');
+    }
+  }
+
+  /// Set the RevenueCat reserved `$adjustId` subscriber attribute via the REST
+  /// API. Crash-proof (plain HTTPS, no native SDK call). Uses the public SDK
+  /// key, which is what the attributes endpoint accepts.
+  static Future<void> _setRevenueCatAdjustId(String adid) async {
+    try {
+      // Ensure Purchases.configure() has finished before reading appUserID.
+      await _revenueCatReady.future;
+      final appUserId = await Purchases.appUserID;
+      if (appUserId.isEmpty) return;
+      final uri = Uri.parse(
+          'https://api.revenuecat.com/v1/subscribers/${Uri.encodeComponent(appUserId)}/attributes');
+      final client = HttpClient();
+      try {
+        final req = await client.postUrl(uri);
+        req.headers.set('Authorization', 'Bearer $_revenueCatApiKey');
+        req.headers.set('Content-Type', 'application/json');
+        req.headers.set('X-Platform', Platform.isIOS ? 'ios' : 'android');
+        req.add(utf8.encode(jsonEncode({
+          'attributes': {
+            '\$adjustId': {'value': adid},
+          }
+        })));
+        final resp = await req.close();
+        await resp.drain<void>();
+        log('RC \$adjustId set: HTTP ${resp.statusCode}', name: 'SdkInit');
+      } finally {
+        client.close();
+      }
+    } catch (e) {
+      log('setRevenueCatAdjustId failed: $e', name: 'SdkInit');
     }
   }
 }
