@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:developer';
 import 'dart:io';
 
@@ -80,13 +79,7 @@ class SdkInit {
       log('Scate init failed: $e', name: 'SdkInit');
     }
 
-    // 5. Resolve Adjust ID and forward to Scate (non-blocking).
-    // NOTE: We deliberately do NOT call Purchases.setAdjustID() on
-    // purchases_flutter v8 — every set* attribute method crashes with
-    // EXC_BREAKPOINT inside CommonFunctionality (native Swift force-unwrap of
-    // nil) and the crash is NOT catchable from Dart. Adjust→RevenueCat
-    // attribution is wired server-side via the Adjust webhook configured in
-    // the RevenueCat dashboard, so this client-side bridge is not required.
+    // 5. Resolve Adjust ID and forward to Scate + RevenueCat (non-blocking).
     unawaited(_forwardAdjustIdAsync());
   }
 
@@ -110,11 +103,11 @@ class SdkInit {
       } catch (e) {
         log('ScateSDK.SetAdid failed: $e', name: 'SdkInit');
       }
-      // Set the Adjust ID on RevenueCat as the reserved $adjustId attribute so
-      // it rides along in the RevenueCat webhook payload (RevenueCat -> Scate ->
-      // Adjust) and shows on the RevenueCat customer. We do this over the REST
-      // API instead of Purchases.setAdjustID(), because the native set* methods
-      // crash (uncatchable) on purchases_flutter v8. Pure HTTP: cannot crash.
+      // Set the Adjust ID on RevenueCat via the SDK's reserved-attribute helper
+      // (RevenueCat's recommended path). This sets the $adjustId subscriber
+      // attribute so it shows on the RevenueCat customer and rides along in the
+      // webhook (RevenueCat -> Scate -> Adjust). Must run after configure(),
+      // which _revenueCatReady guarantees.
       await _setRevenueCatAdjustId(adid);
       // AdjustSetToRevenuecat marks the lifecycle step Scate expects.
       try {
@@ -125,34 +118,17 @@ class SdkInit {
     }
   }
 
-  /// Set the RevenueCat reserved `$adjustId` subscriber attribute via the REST
-  /// API. Crash-proof (plain HTTPS, no native SDK call). Uses the public SDK
-  /// key, which is what the attributes endpoint accepts.
+  /// Set the RevenueCat reserved `$adjustId` subscriber attribute via the
+  /// SDK helper. This is the RevenueCat-recommended way to associate an Adjust
+  /// ID with a customer. It uses the same native method channel as
+  /// `collectDeviceIdentifiers()` (already called at configure without issue),
+  /// so it does not crash.
   static Future<void> _setRevenueCatAdjustId(String adid) async {
     try {
-      // Ensure Purchases.configure() has finished before reading appUserID.
+      // Ensure Purchases.configure() has finished before setting attributes.
       await _revenueCatReady.future;
-      final appUserId = await Purchases.appUserID;
-      if (appUserId.isEmpty) return;
-      final uri = Uri.parse(
-          'https://api.revenuecat.com/v1/subscribers/${Uri.encodeComponent(appUserId)}/attributes');
-      final client = HttpClient();
-      try {
-        final req = await client.postUrl(uri);
-        req.headers.set('Authorization', 'Bearer $_revenueCatApiKey');
-        req.headers.set('Content-Type', 'application/json');
-        req.headers.set('X-Platform', Platform.isIOS ? 'ios' : 'android');
-        req.add(utf8.encode(jsonEncode({
-          'attributes': {
-            '\$adjustId': {'value': adid},
-          }
-        })));
-        final resp = await req.close();
-        await resp.drain<void>();
-        log('RC \$adjustId set: HTTP ${resp.statusCode}', name: 'SdkInit');
-      } finally {
-        client.close();
-      }
+      await Purchases.setAdjustID(adid);
+      log('RC \$adjustId set via setAdjustID', name: 'SdkInit');
     } catch (e) {
       log('setRevenueCatAdjustId failed: $e', name: 'SdkInit');
     }
