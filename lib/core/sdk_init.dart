@@ -54,6 +54,13 @@ class SdkInit {
       try {
         ScateSDK.AdjustInitiated();
       } catch (_) {}
+      // The native launch (splash) screen is already gone by the time this
+      // post-frame init runs — the first Flutter frame is on screen — so mark
+      // the splash as completed. (No FirebaseRemoteInitiated: Spinner has no
+      // remote config, so firing it would be a false signal to Scate.)
+      try {
+        ScateSDK.SplashCompleted();
+      } catch (_) {}
     } catch (e) {
       log('Scate init failed: $e', name: 'SdkInit');
     }
