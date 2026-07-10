@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:scatesdk_flutter/scatesdk_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../features/ai/condition_grader_screen.dart';
@@ -147,15 +148,23 @@ class _BottomNavShell extends StatelessWidget {
             height: 64,
             child: Row(
               children: [
-                _navItem(Icons.home_rounded, 'Home', isHome,
-                    () => context.go(AppRoutes.home)),
-                _navItem(Icons.explore_rounded, 'Explore', isExplore,
-                    () => context.go(AppRoutes.explore)),
+                _navItem(Icons.home_rounded, 'Home', isHome, () {
+                  _tab('home');
+                  context.go(AppRoutes.home);
+                }),
+                _navItem(Icons.explore_rounded, 'Explore', isExplore, () {
+                  _tab('explore');
+                  context.go(AppRoutes.explore);
+                }),
                 _cameraButton(context),
-                _navItem(Icons.album_rounded, 'Collection', isCollection,
-                    () => context.go(AppRoutes.collection)),
-                _navItem(Icons.settings_rounded, 'Settings', false,
-                    () => context.push(AppRoutes.settings)),
+                _navItem(Icons.album_rounded, 'Collection', isCollection, () {
+                  _tab('collection');
+                  context.go(AppRoutes.collection);
+                }),
+                _navItem(Icons.settings_rounded, 'Settings', false, () {
+                  _tab('settings');
+                  context.push(AppRoutes.settings);
+                }),
               ],
             ),
           ),
@@ -226,8 +235,17 @@ class _BottomNavShell extends StatelessWidget {
   }
 
   void _openScan(BuildContext context) {
+    try {
+      ScateSDK.FeatureClicked('scan');
+    } catch (_) {}
     // Scanning + identifying is free; the paywall appears only when the result
     // is about to be revealed (see ScanScreen._saveAndNavigate).
     context.go(AppRoutes.scan);
+  }
+
+  void _tab(String name) {
+    try {
+      ScateSDK.TabClicked(name);
+    } catch (_) {}
   }
 }

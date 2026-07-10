@@ -6,6 +6,7 @@ import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/sdk_init.dart';
+import 'package:scatesdk_flutter/scatesdk_flutter.dart';
 import '../../core/theme.dart';
 import 'paywall_content.dart';
 
@@ -30,6 +31,9 @@ class _PaywallScreenState extends State<PaywallScreen> {
   @override
   void initState() {
     super.initState();
+    try {
+      ScateSDK.PaywallShown('main');
+    } catch (_) {}
     _loadOfferings();
   }
 
@@ -118,6 +122,9 @@ class _PaywallScreenState extends State<PaywallScreen> {
       // transaction, so this purchase can be attributed in Adjust. No-op if it
       // was already set by the background resolver.
       await SdkInit.flushAdjustIdBeforePurchase();
+      try {
+        ScateSDK.PaywallAttempted('main');
+      } catch (_) {}
       // Opens the native StoreKit purchase sheet.
       final info = await Purchases.purchasePackage(pkg);
       if (!mounted) return;
@@ -130,10 +137,16 @@ class _PaywallScreenState extends State<PaywallScreen> {
         });
         return;
       }
+      try {
+        ScateSDK.PaywallPurchased('main');
+      } catch (_) {}
       Navigator.of(context).pop(true);
     } on PlatformException catch (e) {
       final code = PurchasesErrorHelper.getErrorCode(e);
       if (code == PurchasesErrorCode.purchaseCancelledError) {
+        try {
+          ScateSDK.PaywallCancelled('main');
+        } catch (_) {}
         setState(() => _loading = false);
         return;
       }

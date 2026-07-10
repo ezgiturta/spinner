@@ -133,6 +133,9 @@ class _OnboardingPaywallScreenState extends State<OnboardingPaywallScreen> {
       // transaction, so this purchase can be attributed in Adjust. No-op if it
       // was already set by the background resolver.
       await SdkInit.flushAdjustIdBeforePurchase();
+      try {
+        ScateSDK.PaywallAttempted('onboarding');
+      } catch (_) {}
       // Opens the native StoreKit purchase sheet.
       final info = await Purchases.purchasePackage(pkg);
       if (!mounted) return;
@@ -146,10 +149,16 @@ class _OnboardingPaywallScreenState extends State<OnboardingPaywallScreen> {
         });
         return;
       }
+      try {
+        ScateSDK.PaywallPurchased('onboarding');
+      } catch (_) {}
       await _exit();
     } on PlatformException catch (e) {
       final code = PurchasesErrorHelper.getErrorCode(e);
       if (code == PurchasesErrorCode.purchaseCancelledError) {
+        try {
+          ScateSDK.PaywallCancelled('onboarding');
+        } catch (_) {}
         setState(() => _loading = false);
         return;
       }

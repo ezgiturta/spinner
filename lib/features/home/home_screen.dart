@@ -83,6 +83,9 @@ class _HomeScreenState extends State<HomeScreen> {
   // Scanning is free; the paywall appears after identify, when the result is
   // revealed (see ScanScreen._saveAndNavigate).
   Future<void> _openScan() async {
+    try {
+      ScateSDK.FeatureClicked('scan');
+    } catch (_) {}
     await context.push('/scan');
     // A scan may have added a record / changed Pro state — refresh on return.
     if (mounted) _loadData();

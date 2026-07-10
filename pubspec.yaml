@@ -1,7 +1,7 @@
 name: spinner
 description: Vinyl Value & Collection
 publish_to: 'none'
-version: 1.0.12+1
+version: 1.0.13+1
 
 environment:
   sdk: ^3.5.0

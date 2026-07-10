@@ -140,6 +140,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   void _onPageChanged(int page) {
     setState(() => _currentPage = page);
+    try {
+      ScateSDK.OnboardingStep('step_$page');
+    } catch (_) {}
     if (page == _loadingPage) {
       // "Personalizing" interstitial is now the last step. When it finishes,
       // go straight to the paywall (the rating step was removed).
