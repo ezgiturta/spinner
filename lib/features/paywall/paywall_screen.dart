@@ -114,6 +114,10 @@ class _PaywallScreenState extends State<PaywallScreen> {
       return;
     }
     try {
+      // Make sure the Adjust ID is on the RevenueCat customer before the
+      // transaction, so this purchase can be attributed in Adjust. No-op if it
+      // was already set by the background resolver.
+      await SdkInit.flushAdjustIdBeforePurchase();
       // Opens the native StoreKit purchase sheet.
       final info = await Purchases.purchasePackage(pkg);
       if (!mounted) return;
