@@ -107,7 +107,12 @@ class SdkInit {
       // short 10s poll used to give up before the adid existed, leaving a blank
       // adid on RevenueCat so purchases could not be attributed in Adjust.
       final adid = await _resolveAdid(maxWait: const Duration(seconds: 140));
-      if (adid == null) return;
+      if (adid == null) {
+        log('adid-diag: background NEVER resolved an adid within 140s',
+            name: 'SdkInit');
+        return;
+      }
+      log('adid-diag: background resolved adid', name: 'SdkInit');
       await _applyAdid(adid);
     } catch (e) {
       log('Forward Adjust ID failed: $e', name: 'SdkInit');
@@ -118,10 +123,22 @@ class SdkInit {
   /// customer BEFORE a purchase, so the transaction is attributable in Adjust.
   /// No-op if already applied; bounded so it never noticeably delays checkout.
   static Future<void> flushAdjustIdBeforePurchase() async {
-    if (_adjustIdApplied) return;
+    if (_adjustIdApplied) {
+      log('adid-diag: flush no-op, adid already applied before purchase',
+          name: 'SdkInit');
+      return;
+    }
     try {
       final adid = await _resolveAdid(maxWait: const Duration(seconds: 3));
-      if (adid == null) return;
+      if (adid == null) {
+        // Instant-buyer edge: purchased before Adjust assigned an adid, so this
+        // transaction may reach Adjust without attribution.
+        log('adid-diag: flush FAILED, adid NOT ready at purchase (instant buyer)',
+            name: 'SdkInit');
+        return;
+      }
+      log('adid-diag: flush resolved adid at purchase, applying now',
+          name: 'SdkInit');
       await _applyAdid(adid);
     } catch (e) {
       log('flushAdjustIdBeforePurchase failed: $e', name: 'SdkInit');
@@ -171,7 +188,14 @@ class SdkInit {
     try {
       await _revenueCatReady.future;
       await Purchases.setAdjustID(adid);
-      log('RC \$adjustId set via setAdjustID', name: 'SdkInit');
+      // Log the appUserID too so alias fragmentation is visible: the purchasing
+      // customer in RevenueCat must be this same id (or an alias of it).
+      String uid = '';
+      try {
+        uid = await Purchases.appUserID;
+      } catch (_) {}
+      log('adid-diag: RC \$adjustId set (adid=$adid appUserID=$uid)',
+          name: 'SdkInit');
     } catch (e) {
       log('setRevenueCatAdjustId failed: $e', name: 'SdkInit');
     }
