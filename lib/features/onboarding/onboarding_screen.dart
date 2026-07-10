@@ -114,7 +114,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       final ios = FlutterLocalNotificationsPlugin()
           .resolvePlatformSpecificImplementation<
               IOSFlutterLocalNotificationsPlugin>();
-      await ios?.requestPermissions(alert: true, badge: true, sound: true);
+      final granted =
+          await ios?.requestPermissions(alert: true, badge: true, sound: true);
+      // Report the notification permission outcome to Scate (per the Scate doc).
+      try {
+        if (granted == true) {
+          ScateSDK.NotificationPermissionGranted();
+        } else if (granted == false) {
+          ScateSDK.NotificationPermissionDenied();
+        }
+      } catch (_) {}
     } catch (_) {
       // Permission denial / unsupported platform must never block onboarding.
     }

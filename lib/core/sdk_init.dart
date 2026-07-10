@@ -58,12 +58,26 @@ class SdkInit {
       log('Scate init failed: $e', name: 'SdkInit');
     }
 
-    // 3. ATT prompt (iOS only) — must run after Adjust init per Adjust docs.
+    // 3. ATT prompt (iOS only) — after Adjust init per Adjust docs. Scate is
+    // already initialized (step 2), so these ATT lifecycle events land. Report
+    // the prompt + the user's choice to Scate (per the Scate integration doc).
     try {
       if (Platform.isIOS) {
         final status = await AppTrackingTransparency.trackingAuthorizationStatus;
         if (status == TrackingStatus.notDetermined) {
-          await AppTrackingTransparency.requestTrackingAuthorization();
+          try {
+            ScateSDK.ATTPromptShown();
+          } catch (_) {}
+          final result =
+              await AppTrackingTransparency.requestTrackingAuthorization();
+          try {
+            if (result == TrackingStatus.authorized) {
+              ScateSDK.ATTPermissionGranted();
+            } else if (result == TrackingStatus.denied ||
+                result == TrackingStatus.restricted) {
+              ScateSDK.ATTPermissionDenied();
+            }
+          } catch (_) {}
         }
       }
     } catch (e) {
